@@ -66,6 +66,7 @@ AIS/26AS keep filling in after year-end - Q4 TDS filings land after May 31, and 
 6. **AIS entry the user says is genuinely wrong** (duplicate, joint-account attribution, not theirs): do not silently drop it - the user should submit a response through the **AIS feedback mechanism** on the AIS portal (per-entry "feedback" option), then declare the correct figure. Record the discrepancy and the feedback submitted.
 7. **De-duplicate before totalling**: the same payout seen by two reporters, the same FD interest reported twice after a bank merger, the same MF redemption in broker + CAMS. And check gross vs net: AIS interest entries are sometimes net of TDS while the taxable figure is gross.
 8. **Foreign-platform money received in INR in India** is ordinarily Indian-source business/professional income for a resident - not "foreign income" merely because the payer is abroad. Cross-tie payout totals to bank credits. Any genuine foreign asset (RSUs, foreign brokerage) forces Schedule FA → at least ITR-2, and is a stop-and-escalate.
+9. **Exclude AIS rows flagged `Inactive`.** AIS keeps superseded entries alongside the corrections that replaced them. Sum **only** rows with `Status = Active`. Including inactive rows inflates income and - far worse - **inflates the TDS claim**, and an overstated TDS claim is a guaranteed CPC mismatch rather than a rounding quibble. Always cross-check a computed total against AIS's own derived amount for that category; a gap usually means inactive rows crept in.
 
 ## Watch for these - the top 10 filer mistakes
 

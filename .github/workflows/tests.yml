@@ -19,6 +19,8 @@ jobs:
         run: python3 skills/itr-wala/scripts/test_tax_engine.py
       - name: Run validator test suite
         run: python3 skills/itr-wala/scripts/test_validate_income.py
+      - name: Extraction tooling test suite
+        run: python3 skills/itr-wala/scripts/test_extraction.py
       - name: Property fuzz (seeded, deterministic)
         run: python3 skills/itr-wala/scripts/fuzz_engine.py --cases 3000 --seed 42
       - name: Validate example income.json

@@ -8,8 +8,8 @@ One number per income head, each tied to a source document. Never accept a figur
 
 ## The documents
 
-### 1. AIS - Annual Information Statement (with TIS summary)
-- WHAT: the department's wide feed of everything reported against the PAN - interest, dividends, securities/MF transactions (SFT), salary, TDS/TCS. TIS is the aggregated summary the portal uses for prefill.
+### 1. AIS - Annual Information Statement
+- WHAT: the department's wide feed of everything reported against the PAN - interest, dividends, securities/MF transactions (SFT), salary, TDS/TCS. Raw and un-deduplicated; the aggregated summary is **TIS**, below.
 - WHERE: e-filing portal login (incometax.gov.in) → **AIS tab** → redirects to the AIS portal → download. Formats: **JSON and PDF - both are encrypted** (see DECRYPTING, below). A CSV export also exists (verify on the portal before relying on this). There is also an AIS mobile app and an offline **AIS Utility** - a viewer: it imports the encrypted JSON and supports feedback, but does not export usable data, so it is not a substitute for decrypting the file.
 - **DECRYPTING THE DOWNLOAD.** The `.json` file is not JSON - it is base64-wrapped AES ciphertext, and nothing reads it as-is. Run `scripts/decrypt_ais.py`, which prompts for PAN and DOB without echoing them and writes plaintext JSON. The scheme:
   - `file     = IV(32 hex chars) || salt(32 hex chars) || base64(ciphertext)`
@@ -21,6 +21,12 @@ One number per income head, each tied to a source document. Never accept a figur
 - **Never paste an AIS file into a web decryption tool.** Several exist. They are third-party pages that would receive the taxpayer's entire financial year in one upload. Decrypt locally.
 - WHY: it is the department's view of the user's income - anything here that the return omits is notice bait. Feeds `source_totals.ais_*` and helps discover income the user forgot. **Strongly prefer the JSON download over the PDF** - AIS PDFs are often image/OCR-only and digit-level OCR errors are the top extraction hazard.
 - SFT codes in AIS are authoritative evidence for equity vs non-equity fund classification: **SFT-18-EMF / SFT-17-LES → equity-oriented (s.111A/s.112A rates)**; **SFT-18-OTU → non-equity (slab / s.112)**. Traps: arbitrage funds ARE equity-oriented; balanced-advantage and liquid funds are NOT; switch-outs count as redemptions.
+
+### 1b. TIS - Taxpayer Information Summary
+- WHAT: the aggregated, **de-duplicated** summary derived from AIS. One row per information category, with Reported / Processed / **Accepted (Derived)** values.
+- WHERE: the same AIS portal homepage as AIS, a separate **TIS** tile. PDF (JSON where offered); PDF password = **PAN lowercase + ddmmyyyy**. Read it with `scripts/extract_tis.py`.
+- WHY: **the tie-breaker whenever AIS reports the same income through two channels** (see reconciliation rule 10). Its Derived Value is the department's own de-duplicated figure and is what portal prefill uses, so a return matching TIS will not trip a prefill mismatch.
+- TIS carries only category totals - **no payer identities** - which also makes it the safest AIS-family document to work from when a user wants identities kept out of the extraction.
 
 ### 2. Form 26AS - Tax Credit Statement
 - WHAT: every TDS/TCS entry against the PAN, with deductor TAN and section (192 salary, 194A interest, 194C contract, 194J professional, 194S VDA…), plus advance/self-assessment tax challans.
@@ -67,6 +73,7 @@ AIS/26AS keep filling in after year-end - Q4 TDS filings land after May 31, and 
 7. **De-duplicate before totalling**: the same payout seen by two reporters, the same FD interest reported twice after a bank merger, the same MF redemption in broker + CAMS. And check gross vs net: AIS interest entries are sometimes net of TDS while the taxable figure is gross.
 8. **Foreign-platform money received in INR in India** is ordinarily Indian-source business/professional income for a resident - not "foreign income" merely because the payer is abroad. Cross-tie payout totals to bank credits. Any genuine foreign asset (RSUs, foreign brokerage) forces Schedule FA → at least ITR-2, and is a stop-and-escalate.
 9. **Exclude AIS rows flagged `Inactive`.** AIS keeps superseded entries alongside the corrections that replaced them. Sum **only** rows with `Status = Active`. Including inactive rows inflates income and - far worse - **inflates the TDS claim**, and an overstated TDS claim is a guaranteed CPC mismatch rather than a rounding quibble. Always cross-check a computed total against AIS's own derived amount for that category; a gap usually means inactive rows crept in.
+10. **Never add SFT dividends to s.194 dividends.** The same dividend is reported through two channels - **SFT-015 "Dividend income"** and **s.194 "Dividend received"** under TDS/TCS - and adding both roughly doubles dividend income. SFT-015 captures every dividend while s.194 captures only those crossing the TDS threshold, so SFT-015 is normally the larger and more complete figure. De-duplicating by reporter name **under-counts the overlap**: the two channels often file under different names for the same company (a renamed entity, a registrar filing on its behalf). **Resolve with TIS**, whose Derived Value is the department's de-duplicated figure. TIS's detail pages show the mechanism outright - the SFT row carries the accepted amount and the paired TDS row shows `-`.
 
 ## Watch for these - the top 10 filer mistakes
 

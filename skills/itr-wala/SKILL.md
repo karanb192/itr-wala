@@ -65,6 +65,16 @@ relative to this SKILL.md. Resolve the skill directory once at the start
    Python scripts run locally. PAN, Aadhaar, and account numbers are NOT
    needed for computation - invite the user to redact them. Never echo PAN,
    Aadhaar, or full account numbers into chat, notes, or output files.
+   Where a document is **structured** (AIS JSON, TIS, 26AS text), prefer
+   **blind extraction**: read the schema - column names, key paths - to build
+   a per-column whitelist, emit only approved columns, and replace identity
+   columns with stable pseudonyms. You then work with amounts and categories
+   while payer names, account numbers and PAN never enter your context. See
+   `references/blind-extraction.md`; `scripts/redact_ais.py`,
+   `scripts/parse_26as.py` and `scripts/extract_tis.py` do this already. Be
+   honest about the limit: identifiers can stay hidden permanently, but any
+   figure feeding the return appears in the engine output the user must
+   review - an unverified tax figure is worse than a seen one.
 
 ## Workflow
 
@@ -227,6 +237,7 @@ express something, you say so out loud rather than approximating (rule 8).
 | `references/capital-gains.md` | any equity/MF/crypto/property sale |
 | `references/form-selector.md` | choosing ITR-1/2/3/4 |
 | `references/portal-walkthrough.md` | step 9 filing |
+| `references/blind-extraction.md` | user wants identities kept out of the extraction |
 
 ## Disclaimer to show the user once
 

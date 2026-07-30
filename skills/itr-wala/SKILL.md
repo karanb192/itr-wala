@@ -104,8 +104,10 @@ Walk through `references/documents-guide.md` with the user. Minimum viable
 set for a salaried filer: **Form 16** + **AIS (JSON preferred)**. Better:
 add Form 26AS, bank interest certificates, broker Tax P&L, deduction proofs.
 Ask the user to drop files into `docs/` and tell you. Prefer AIS **JSON**
-export over PDF (OCR-hostile). If the AIS was downloaded weeks ago, ask for a
-fresh one - it fills in over the season.
+export over PDF (OCR-hostile) - but the JSON download is **encrypted**, so
+decrypt it with `scripts/decrypt_ais.py` before anything can read it. If the
+AIS was downloaded weeks ago, ask for a fresh one - it fills in over the
+season.
 
 ### 3. Extract
 

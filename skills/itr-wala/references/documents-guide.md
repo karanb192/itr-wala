@@ -10,7 +10,15 @@ One number per income head, each tied to a source document. Never accept a figur
 
 ### 1. AIS - Annual Information Statement (with TIS summary)
 - WHAT: the department's wide feed of everything reported against the PAN - interest, dividends, securities/MF transactions (SFT), salary, TDS/TCS. TIS is the aggregated summary the portal uses for prefill.
-- WHERE: e-filing portal login (incometax.gov.in) → **AIS tab** → redirects to the AIS portal → download. Formats: **JSON and PDF** (PDF password = **PAN in lowercase + DOB as ddmmyyyy**). A CSV export also exists (verify on the portal before relying on this). There is also an AIS mobile app and offline utility.
+- WHERE: e-filing portal login (incometax.gov.in) → **AIS tab** → redirects to the AIS portal → download. Formats: **JSON and PDF - both are encrypted** (see DECRYPTING, below). A CSV export also exists (verify on the portal before relying on this). There is also an AIS mobile app and an offline **AIS Utility** - a viewer: it imports the encrypted JSON and supports feedback, but does not export usable data, so it is not a substitute for decrypting the file.
+- **DECRYPTING THE DOWNLOAD.** The `.json` file is not JSON - it is base64-wrapped AES ciphertext, and nothing reads it as-is. Run `scripts/decrypt_ais.py`, which prompts for PAN and DOB without echoing them and writes plaintext JSON. The scheme:
+  - `file     = IV(32 hex chars) || salt(32 hex chars) || base64(ciphertext)`
+  - `password = PAN || "GQ39%*g" || DDMMYYYY`
+  - `key      = PBKDF2-HMAC-SHA256(password, salt, 1000 iterations, 32 bytes)`
+  - `cipher   = AES-256-CBC, PKCS7 padding`
+
+  The literal `GQ39%*g` wedged between PAN and DOB is why a plain PAN+DOB password always fails. Sources disagree on PAN case; the script tries both. The **PDF** uses a *different* password - **PAN lowercase + ddmmyyyy**, no separator - and opens with `qpdf --password=... --decrypt`.
+- **Never paste an AIS file into a web decryption tool.** Several exist. They are third-party pages that would receive the taxpayer's entire financial year in one upload. Decrypt locally.
 - WHY: it is the department's view of the user's income - anything here that the return omits is notice bait. Feeds `source_totals.ais_*` and helps discover income the user forgot. **Strongly prefer the JSON download over the PDF** - AIS PDFs are often image/OCR-only and digit-level OCR errors are the top extraction hazard.
 - SFT codes in AIS are authoritative evidence for equity vs non-equity fund classification: **SFT-18-EMF / SFT-17-LES → equity-oriented (s.111A/s.112A rates)**; **SFT-18-OTU → non-equity (slab / s.112)**. Traps: arbitrage funds ARE equity-oriented; balanced-advantage and liquid funds are NOT; switch-outs count as redemptions.
 

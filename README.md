@@ -7,15 +7,19 @@
 ⏳ **AY 2026-27 deadlines: ITR-1/2 → 31 July 2026 · ITR-3/4 (non-audit) → 31 August 2026.**
 
 ```
-# Claude Code
+# Review-first (recommended): clone, read it, install the bytes you just read
+git clone https://github.com/karanb192/itr-wala.git
+cd itr-wala && ./install.sh          # also: codex, gemini, all
+
+# Or scope it to just the folder your tax documents live in
+cd ~/tax-2026 && ~/itr-wala/install.sh --here
+
+# Claude Code plugin (name whichever repo you trust)
 /plugin marketplace add karanb192/itr-wala
 /plugin install itr-wala@itr-wala
-
-# Or the plain-skill route (Claude by default; also: -s codex, -s gemini, -s all)
-curl -fsSL https://raw.githubusercontent.com/karanb192/itr-wala/main/install.sh | bash
 ```
 
-Prefer not to pipe curl into bash? Good instinct. Clone the repo, read `install.sh` (~80 lines), then run it.
+Run from a checkout, `install.sh` **never touches the network** - it copies the files you just read. See [Install from a branch you reviewed](#install-from-a-branch-you-reviewed) for why that matters when the tool handles your salary and bank data.
 
 ![itr-wala demo: golden tests pass, income validates against document totals, both regimes computed - ₹42,811 found](demo/demo.gif)
 
@@ -127,15 +131,70 @@ WSL works today; native Windows paths are on the roadmap. macOS and Linux are fi
 
 ## Install options
 
+Clone first, then run `./install.sh` from inside the checkout - it copies the files in front of you and makes no network calls at all.
+
+**Which agent** - the positional argument:
+
 | Tool | How |
 |---|---|
-| Claude Code (recommended - updates with `/plugin marketplace update itr-wala`) | `/plugin marketplace add karanb192/itr-wala` → `/plugin install itr-wala@itr-wala` |
-| Claude Code (plain skill) | `curl -fsSL https://raw.githubusercontent.com/karanb192/itr-wala/main/install.sh \| bash` |
-| OpenAI Codex CLI | `… \| bash -s codex` (installs to `~/.agents/skills` + `~/.codex/skills`; invoke with `$itr-wala`) |
-| Gemini CLI | `… \| bash -s gemini` |
-| Everything | `… \| bash -s all` |
+| Claude Code (plain skill) | `./install.sh` |
+| OpenAI Codex CLI | `./install.sh codex` (invoke with `$itr-wala`) |
+| Gemini CLI | `./install.sh gemini` |
+| Everything | `./install.sh all` |
+| Claude Code plugin (updates with `/plugin marketplace update itr-wala`) | `/plugin marketplace add <owner>/itr-wala` → `/plugin install itr-wala@itr-wala` |
 
-Requirements: `python3` 3.9+ (stdlib only - zero pip installs), `git` for the curl installer.
+**Global or project-local** - the scope flag:
+
+| Scope | Command | Lands in |
+|---|---|---|
+| Global (default) | `./install.sh all` | `~/.claude/skills/`, `~/.agents/skills/`, `~/.codex/skills/`, `~/.gemini/skills/` |
+| Project-local | `cd ~/tax-2026 && /path/to/itr-wala/install.sh --here all` | `~/tax-2026/.claude/skills/`, `.agents/skills/`, `.gemini/skills/` |
+| Project-local, named | `./install.sh --project ~/tax-2026 all` | the same, without the `cd` |
+
+**Project-local is usually the better fit for tax work.** The skill lives beside the return it prepared, so next year's copy cannot quietly follow you into unrelated projects, and deleting the folder removes it completely - which matters for a tool whose whole value is that you know exactly what version ran against your Form 16. Start your CLI from that directory (or below it) for the skill to be found.
+
+Project-scoped discovery is well established for Claude Code (`.claude/skills/`) and for Codex via the cross-agent `.agents/skills/`; the per-project path is less settled for other CLIs, so if yours doesn't pick the skill up, check its docs for project-scoped skill locations and fall back to a global install. (`~/.codex/skills` is a global-only location - a project-local install skips it deliberately.)
+
+Requirements: `python3` 3.9+ (stdlib only - zero pip installs), `git` only if you let the installer fetch rather than running it from a checkout.
+
+## Install from a branch you reviewed
+
+This tool reads your Form 16, AIS, bank interest and capital gains. For something in that position, "I read the code once" only means something if **the code you read is the code that runs**. A `curl … | bash` one-liner cannot give you that - it installs whatever is on `main` at the moment you run it, from a repo you do not control, and re-decides that question on every update. That is true of this repo as much as any other.
+
+So the installer is built for a fork-review-pin workflow instead:
+
+**1. Fork it.** Your fork is a snapshot you control. Nobody can change it under you.
+
+**2. Read it.** The whole thing is ~4,200 lines with **zero third-party dependencies**, which is what makes a real review tractable in an evening. Worth confirming for yourself: no `import requests`/`urllib`/`socket` anywhere; `tax_engine.py` and `validate_income.py` read one JSON file and write only to stdout; no `eval`/`exec`/`base64`; the CI workflow uploads nothing. Check `.gitignore` covers the document names you actually use.
+
+**3. Point the installer at your fork** - one line, near the top of `install.sh`:
+
+```bash
+DEFAULT_REPO="https://github.com/karanb192/itr-wala.git"   # point this at YOUR repo
+```
+
+It must name the repo the script *lives in*. An installer defaulting to a repo its operator does not control re-introduces the exact problem this avoids.
+
+**4. Pin what you reviewed**, if you install somewhere other than the checkout:
+
+| Variable | Effect |
+|---|---|
+| `ITR_WALA_REF=<sha\|tag\|branch>` | Fetch exactly this commit. Pin the SHA you reviewed and updates stop being silent |
+| `ITR_WALA_NO_FETCH=1` | Refuse to reach the network at all; install only from a real checkout |
+| `ITR_WALA_REPO=<url>` | Pull from a different repo - e.g. `https://github.com/karanb192/itr-wala.git` for the original. Explicit opt-in, never the default |
+
+Worked example - install a specific reviewed commit on a second machine:
+
+```bash
+ITR_WALA_REF=05c88d0 ./install.sh all
+#   fetched commit 05c88d0cf13f45528039b77c3e61542a15783b51
+```
+
+The installer prints the resolved commit hash on every fetch, so an unattended run stays auditable after the fact.
+
+**What this does not fix.** Reviewing the code does not change the tool's central privacy tradeoff: the Python runs locally, but the *documents you hand the AI are read by the model*, and that leaves your machine. See [Privacy, honestly](#privacy-honestly). Pinning also cannot vouch for a document you were sent - the model reads whatever text a PDF contains.
+
+*Everything above except the `DEFAULT_REPO` value is generic - it works unchanged in this repo, in the original, and in any fork of either, because the repo a copy lives in is the only thing that distinguishes them. Patches welcome in any direction.*
 
 ## Roadmap
 

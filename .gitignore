@@ -13,6 +13,14 @@ computation.json
 computation.txt
 filing-pack.md
 
+# The patterns above match by NAME, so they also swallow the skill's own
+# source - decrypt_ais.py, parse_26as.py, extract_tis.py and friends are named
+# for the documents they read. Re-include skill source explicitly. Only code
+# and docs: a stray statement dropped under skills/ stays ignored.
+!skills/**/*.py
+!skills/**/*.md
+!skills/**/*.json
+
 # OS / editor noise
 .DS_Store
 __pycache__/

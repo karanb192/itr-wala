@@ -169,7 +169,7 @@ echo
 echo "Verifying the tax engine (golden test suite) in each installed copy..."
 FAILED=0
 for dest in "${INSTALLED[@]}"; do
-  if python3 "$dest/scripts/test_tax_engine.py" >/dev/null 2>&1; then
+  if PYTHONDONTWRITEBYTECODE=1 python3 "$dest/scripts/test_tax_engine.py" >/dev/null 2>&1; then
     echo "  OK   $dest"
   else
     echo "  FAIL $dest - run: python3 $dest/scripts/test_tax_engine.py" >&2

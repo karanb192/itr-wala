@@ -43,6 +43,10 @@ def decrypt(blob, pan, dob):
     ciphertext = base64.b64decode(body)
 
     # OpenSSL handles AES-CBC + PKCS7; key/iv passed as hex, plaintext via stdout.
+    # Tradeoff, made knowingly: the DERIVED key rides on argv, visible to a
+    # concurrent `ps` on a shared host for the sub-second run (PAN and DOB
+    # never do). stdlib has no AES, and a pip dependency is off the table for
+    # this project, so the alternative costs more than the exposure.
     proc = subprocess.run(
         ["openssl", "enc", "-d", "-aes-256-cbc",
          "-K", key.hex(), "-iv", iv_hex],

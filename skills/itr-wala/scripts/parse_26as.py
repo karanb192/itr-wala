@@ -63,6 +63,9 @@ def num(v):
         return None
 
 
+_shape_warned = False
+
+
 def is_header(fields):
     low = [f.strip().lower() for f in fields]
     return "sr. no." in low and any(f in SHOW or f in IDENT for f in low if f)
@@ -119,6 +122,19 @@ def main(argv):
         kind = "summary" if fields[0].strip().isdigit() else "detail"
         header = headers.get(kind)
         if not header or len(fields) < 3:
+            continue
+        # Guard the classification: the two data-row shapes differ in field
+        # count, so a row that does not match its header's width was
+        # misclassified (a non-standard export). Skipping it loudly beats
+        # zipping it against the wrong header, which silently shifts every
+        # column and double-counts amounts into the totals.
+        if len(fields) != len(header):
+            global _shape_warned
+            if not _shape_warned:
+                _shape_warned = True
+                print("WARNING: row(s) matched neither header shape - "
+                      "non-standard 26AS export? Skipped, not totalled; "
+                      "reconcile totals against the document.", file=sys.stderr)
             continue
         serial = fields[0].strip() if kind == "summary" else fields[1].strip()
         if not serial.isdigit():

@@ -71,6 +71,9 @@ HEADER_WORDS = {
     "DIVIDEND", "INTEREST", "SAVINGS", "BANK", "TDS", "TCS", "SFT", "AND",
     "OF", "THE", "FROM", "PAID", "CREDITED", "SECTION", "OUTWARD", "FOREIGN",
     "REMITTANCE", "PURCHASE", "CURRENCY", "INCOME", "RECEIVED", "TAX",
+    # Document/category tokens that appear alone on whitelisted lines and
+    # must survive the single-token payer pass below.
+    "AY", "FY", "ITR", "AIS", "TIS", "PAN", "NRO", "NRE", "FD", "RD",
 }
 # A payer name is a run of two or more capitalised words. Matching only
 # ALL-CAPS runs missed mixed-case names such as "SomeCement India Limited".
@@ -78,25 +81,55 @@ CAPS_RUN = re.compile(r"\b(?:[A-Z][A-Za-z&.\-]+(?:\s+|$)){2,}")
 _payers = {}
 
 
+def _is_header_word(w):
+    return re.sub(r"[^A-Z]", "", w.upper()) in HEADER_WORDS
+
+
 def _pseudo(match):
     raw = match.group(0)
     words = [w for w in re.split(r"\s+", raw.strip()) if w]
     # Compare case-insensitively: "Total Dividend" is a column value, not a
     # payer, and must survive the same test that protects ALL-CAPS headings.
-    if all(re.sub(r"[^A-Z]", "", w.upper()) in HEADER_WORDS for w in words):
+    if all(_is_header_word(w) for w in words):
         return raw                      # a heading or column label, not a payer
-    key = " ".join(words)
+    # Keep a leading run of known label words ("Dividend RELIANCE INDUSTRIES
+    # LTD" keeps "Dividend"), so masking a payer never swallows the category
+    # label the figure needs to stay classifiable.
+    keep = 0
+    while keep < len(words) - 1 and _is_header_word(words[keep]):
+        keep += 1
+    prefix = " ".join(words[:keep])
+    payer = words[keep:]
+    key = " ".join(payer)
     if key not in _payers:
         _payers[key] = f"[PAYER-{len(_payers) + 1:02d}]"
     trailing = "" if raw == raw.rstrip() else " "
-    return _payers[key] + trailing
+    joined = (prefix + " " if prefix else "") + _payers[key]
+    return joined + trailing
+
+
+# A single-token payer ("HDFC", "SBI") preceded by lowercase text escapes
+# CAPS_RUN's two-word minimum and would leak verbatim - catch stand-alone
+# caps tokens separately. Anything all-caps, 2+ letters, not a known label.
+# The lookbehind skips tokens inside already-emitted masks like [PAYER-01].
+SINGLE_CAPS = re.compile(r"(?<!\[)\b[A-Z][A-Z&.\-]{1,}\b")
+
+
+def _pseudo_single(match):
+    w = match.group(0)
+    if _is_header_word(w):
+        return w
+    if w not in _payers:
+        _payers[w] = f"[PAYER-{len(_payers) + 1:02d}]"
+    return _payers[w]
 
 
 def mask(line):
     for pattern, repl in MASKS:
         line = pattern.sub(repl, line)
     line = re.sub(r"\b[A-Z]{4}\d{5}[A-Z]\b", "[TAN]", line)   # deductor TAN
-    return CAPS_RUN.sub(_pseudo, line)
+    line = CAPS_RUN.sub(_pseudo, line)
+    return SINGLE_CAPS.sub(_pseudo_single, line)
 
 
 def main(argv):

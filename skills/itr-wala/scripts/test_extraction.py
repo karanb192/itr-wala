@@ -492,6 +492,52 @@ class TestExtractTis(unittest.TestCase):
         _, _, rc = run("extract_tis.py")
         self.assertEqual(rc, 2)
 
+    def test_single_token_payer_masked(self):
+        """Regression lock (fixed): a one-word payer after lowercase text
+        escaped the two-word-minimum run matcher and leaked verbatim."""
+        out = extract_tis.mask("1  Interest from savings bank  HDFC  71,080")
+        self.assertNotIn("HDFC", out)
+        self.assertIn("[PAYER-", out)
+        self.assertIn("71,080", out)
+
+    def test_leading_label_survives_payer_mask(self):
+        """Regression lock (fixed): masking a payer swallowed the category
+        label before it, leaving the figure unclassifiable."""
+        out = extract_tis.mask("SFT-015  Dividend  RELIANCE INDUSTRIES LTD  1361758")
+        self.assertIn("Dividend", out)
+        self.assertNotIn("RELIANCE", out)
+        self.assertIn("1361758", out)
+
+    def test_pseudonyms_not_remasked(self):
+        out = extract_tis.mask("interest paid  ICICI  and  AXIS BANK LIMITED  5,000")
+        self.assertNotIn("[[", out)
+        self.assertNotIn("ICICI", out)
+        self.assertNotIn("AXIS", out)
+
+    def test_document_tokens_survive_single_pass(self):
+        line = "Interest from NRO account for AY 2026-27  2,000"
+        self.assertEqual(extract_tis.mask(line), line)
+
+
+class TestParse26asShapeGuard(unittest.TestCase):
+
+    def setUp(self):
+        parse_26as._book.clear()
+        parse_26as._shape_warned = False
+
+    def test_mismatched_row_skipped_loudly(self):
+        """A digit-first row whose width matches neither header shape was
+        zipped against the summary header, shifting columns and double
+        counting. It must be skipped, with a warning, not totalled."""
+        doctored = FAKE_26AS + "\n9^999999.00^UNMATCHED"
+        with tempfile.TemporaryDirectory() as tmp:
+            p = write(tmp, "26as.txt", doctored)
+            out, err, rc = run("parse_26as.py", p)
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("999999", out)
+        self.assertIn("WARNING", err)
+        self.assertIn("150,000.00", out)   # real totals unchanged
+
 
 if __name__ == "__main__":
     unittest.main()

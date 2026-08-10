@@ -69,7 +69,8 @@ relative to this SKILL.md. Resolve the skill directory once at the start
    **blind extraction**: read the schema - column names, key paths - to build
    a per-column whitelist, emit only approved columns, and replace identity
    columns with stable pseudonyms. You then work with amounts and categories
-   while payer names, account numbers and PAN never enter your context. See
+   while payer names, account numbers and PAN stay out of your context
+   (best-effort for free-text lines - structured columns are airtight). See
    `references/blind-extraction.md`; `scripts/redact_ais.py`,
    `scripts/parse_26as.py` and `scripts/extract_tis.py` do this already. Be
    honest about the limit: identifiers can stay hidden permanently, but any

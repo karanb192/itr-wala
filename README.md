@@ -141,7 +141,7 @@ Clone first, then run `./install.sh` from inside the checkout - it copies the fi
 | OpenAI Codex CLI | `./install.sh codex` (invoke with `$itr-wala`) |
 | Gemini CLI | `./install.sh gemini` |
 | Everything | `./install.sh all` |
-| Claude Code plugin (updates with `/plugin marketplace update itr-wala`) | `/plugin marketplace add <owner>/itr-wala` → `/plugin install itr-wala@itr-wala` |
+| Claude Code plugin (updates with `/plugin marketplace update itr-wala`) | `/plugin marketplace add karanb192/itr-wala` → `/plugin install itr-wala@itr-wala` |
 
 **Global or project-local** - the scope flag:
 

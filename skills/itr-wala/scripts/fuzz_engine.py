@@ -174,7 +174,9 @@ def gen_case(rng):
         else:
             p = {"type": "let_out", "rent_received": rand_amount(rng)}
             if rng.random() < 0.5:
-                # Fraction of rent, or unrelated (municipal > rent -> negative NAV).
+                # Fraction of rent, or unrelated (municipal > rent: the engine
+                # clamps NAV to 0 - s.24(a) caps the deduction at the annual
+                # value, so no loss may come from the tax excess).
                 p["municipal_taxes"] = (int(p["rent_received"] * rng.uniform(0.0, 0.3))
                                         if rng.random() < 0.7 else rand_amount(rng))
             if rng.random() < 0.7:

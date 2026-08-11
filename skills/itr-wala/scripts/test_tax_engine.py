@@ -180,6 +180,56 @@ class TestRegressionLocks(unittest.TestCase):
         self.assertEqual(c["total_income"], 300_000)
         self.assertEqual(c["gross_total_income"], 300_000)
 
+    def test_hp_muni_taxes_above_rent_make_no_loss(self):
+        # s.23(2)/s.24(a): municipal taxes are deductible only up to the
+        # annual value - NAV can never be negative. Rent 1L, muni 2L: the
+        # NAV clamps to 0, so a let-out property with no interest produces
+        # NO house-property loss at all (a negative NAV would have let a
+        # 1L loss set off against other heads under s.71 - unlawful).
+        r = compute({"regime": "old", "income": {"house_property": [
+            {"type": "let_out", "rent_received": 100_000,
+             "municipal_taxes": 200_000}]}})
+        c = r["old"]
+        self.assertEqual(c["heads"]["house_property"]["income"], 0)
+        self.assertEqual(c["total_income"], 0)
+        self.assertEqual(c["tax"]["total_tax_liability"], 0)
+        self.assertTrue(any("Municipal taxes exceed rent" in w
+                            for w in c["warnings"]))
+
+    def test_hp_muni_taxes_above_rent_loss_limited_to_interest(self):
+        # Same facts plus 50k interest: the loss is the interest ALONE
+        # (50,000) - never 1,50,000. With salary 10L (old regime):
+        # 10L - 50k std - 50k loss = 9L -> 92,500 + 4% = 96,200.
+        r = compute({"regime": "old", "income": {
+            "salary": {"gross": 1_000_000},
+            "house_property": [{"type": "let_out", "rent_received": 100_000,
+                                "municipal_taxes": 200_000,
+                                "interest_paid": 50_000}]}})
+        c = r["old"]
+        self.assertEqual(c["heads"]["house_property"]["income"], -50_000)
+        self.assertEqual(c["total_income"], 900_000)
+        self.assertEqual(old_liab(r), 96_200)
+
+    def test_hp_vacant_with_muni_taxes_no_loss(self):
+        # Regression lock: a vacant let-out property (rent 0) paying muni
+        # taxes 1L once booked a 1L loss. With the NAV clamp it contributes
+        # nothing - only interest can create a house-property loss.
+        r = compute({"income": {"house_property": [
+            {"type": "let_out", "rent_received": 0,
+             "municipal_taxes": 100_000}]}})
+        for rk in ("new", "old"):
+            self.assertEqual(r[rk]["heads"]["house_property"]["income"], 0)
+
+    def test_hp_muni_taxes_equal_to_rent_income_is_interest_only(self):
+        # Boundary: muni == rent -> NAV exactly 0; income is -interest only.
+        r = compute({"regime": "old", "income": {"house_property": [
+            {"type": "let_out", "rent_received": 100_000,
+             "municipal_taxes": 100_000, "interest_paid": 100_000}]}})
+        c = r["old"]
+        self.assertEqual(c["heads"]["house_property"]["income"], -100_000)
+        self.assertFalse(any("Municipal taxes exceed rent" in w
+                             for w in c["warnings"]))
+
     def test_belated_return_forces_new_regime(self):
         # Old regime is cheaper here, but a belated return (s.139(4)) cannot
         # opt out of the new regime - recommendation must be forced to new.

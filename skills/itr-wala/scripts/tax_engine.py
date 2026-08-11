@@ -185,7 +185,17 @@ def compute_house_property(inp, regime_key, warnings):
                     warnings.append("New regime: self-occupied home-loan interest (s.24b) not deductible - ignored.")
         else:  # let_out
             nav = _pos(p.get("rent_received")) - _pos(p.get("municipal_taxes"))
-            income = nav - 0.30 * _pos(nav) - interest
+            # s.23(2)/s.24(a): municipal taxes are deductible only up to the
+            # annual value - the NAV can never go negative. Taxes above the
+            # rent (usually a transcription slip) must not manufacture a loss
+            # that could then set off against other heads under s.71.
+            if nav < 0:
+                warnings.append("Municipal taxes exceed rent on a let-out property - "
+                                "the s.24(a) deduction is limited to the annual value, "
+                                "so NAV is taken as 0. Confirm the figures; municipal "
+                                "taxes above rent are usually a transcription error.")
+                nav = 0.0
+            income = nav - 0.30 * nav - interest
         detail.append({"type": ptype, "income": round(income)})
         total += income
     if total < 0:

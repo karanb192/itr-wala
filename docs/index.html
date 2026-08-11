@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>itr-wala · File your Indian ITR from the terminal, every rupee computed by tested code</title>
+<meta name="description" content="Free, open-source ITR filing for AY 2026-27. The AI reads your Form 16 and AIS and interviews you; a tested Python engine computes every rupee. 47 golden tests, 104 validator tests, 350,000+ fuzzed returns. You alone pay, submit, e-verify.">
+<meta name="author" content="Karan Bansal">
+<link rel="canonical" href="https://itr-wala.karanbansal.in/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="itr-wala">
+<meta property="og:url" content="https://itr-wala.karanbansal.in/">
+<meta property="og:title" content="itr-wala · File your Indian ITR from the terminal">
+<meta property="og:description" content="Free and open source. The AI reads your documents; a tested Python engine computes every rupee. No CA, no fee, and you alone click Pay, Submit, e-Verify.">
+<meta property="og:image" content="https://itr-wala.karanbansal.in/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@karanb192">
+<meta name="twitter:creator" content="@karanb192">
+<meta name="twitter:title" content="itr-wala · File your Indian ITR from the terminal">
+<meta name="twitter:description" content="The AI reads your documents; a tested Python engine computes every rupee. Free, MIT-licensed, and you alone click Pay, Submit, e-Verify.">
+<meta name="twitter:image" content="https://itr-wala.karanbansal.in/og.jpg">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "itr-wala",
+  "url": "https://itr-wala.karanbansal.in/",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "macOS, Linux",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" },
+  "license": "https://github.com/karanb192/itr-wala/blob/main/LICENSE",
+  "softwareVersion": "AY 2026-27",
+  "author": { "@id": "https://karanbansal.in/#karan" },
+  "sameAs": "https://github.com/karanb192/itr-wala"
+}
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --paper: #fbfbf8;
+  --card: #ffffff;
+  --ink: #17201f;
+  --muted: #5c6462;
+  --rule: #e4e6e2;
+  --teal: #106d63;
+  --teal-dark: #0b4f48;
+  --pass: #1a7f37;
+  --amber-bg: #fff3d6;
+  --amber-ink: #7a5200;
+  --term-bg: #10201d;
+  --term-ink: #d7e5e1;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--teal); }
+.mono { font-family: 'JetBrains Mono', monospace; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+section { padding: 72px 0; }
+
+/* deadline strip */
+.strip {
+  background: var(--amber-bg);
+  color: var(--amber-ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  text-align: center;
+  padding: 9px 16px;
+  letter-spacing: 0.01em;
+}
+.strip strong { font-weight: 700; }
+
+/* header */
+header { border-bottom: 1px solid var(--rule); background: var(--paper); }
+.head-in {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 0;
+}
+.wordmark { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px; color: var(--ink); text-decoration: none; }
+.wordmark span { color: var(--teal); }
+.head-links { display: flex; align-items: center; gap: 18px; }
+.head-links a.plain { font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none; }
+.head-links a.plain:hover { color: var(--ink); }
+.gh-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--ink); color: #fff; text-decoration: none;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500;
+  padding: 8px 14px; border-radius: 6px;
+}
+.gh-btn:hover { background: #000; }
+.gh-btn img { height: 20px; display: block; }
+
+/* hero */
+.hero { padding: 64px 0 72px; }
+.hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+h1 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(28px, 3.6vw, 40px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+h1 .accent { color: var(--teal); }
+.sub { margin-top: 18px; font-size: 17px; color: var(--muted); max-width: 46ch; }
+.sub strong { color: var(--ink); }
+.install {
+  margin-top: 26px;
+  background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+}
+.install code {
+  font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: var(--ink);
+  overflow-x: auto; white-space: nowrap; flex: 1; scrollbar-width: none;
+}
+.copy-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  background: var(--paper); color: var(--muted);
+  border: 1px solid var(--rule); border-radius: 5px;
+  padding: 5px 10px; cursor: pointer; flex-shrink: 0;
+}
+.copy-btn:hover { color: var(--ink); border-color: var(--muted); }
+.hero-ctas { margin-top: 22px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.cta {
+  display: inline-block; text-decoration: none; font-weight: 600; font-size: 15px;
+  padding: 11px 20px; border-radius: 7px;
+}
+.cta.primary { background: var(--teal); color: #fff; }
+.cta.primary:hover { background: var(--teal-dark); }
+.cta.ghost { color: var(--ink); border: 1.5px solid var(--rule); background: var(--card); }
+.cta.ghost:hover { border-color: var(--muted); }
+
+/* the ledger terminal (signature) */
+.term {
+  background: var(--term-bg); border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(16, 32, 29, 0.18);
+  overflow: hidden;
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+  color: var(--term-ink); line-height: 1.75;
+}
+.term-bar { display: flex; gap: 6px; padding: 12px 14px; background: rgba(255,255,255,0.05); }
+.term-bar i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.16); }
+.term-body { padding: 18px 20px 22px; overflow-x: auto; }
+.term-body .p { color: #7fa39c; }
+.term-body .ok { color: #5fd38a; font-weight: 700; }
+.term-body .num { color: #ffffff; }
+.term-body .dim { color: #7fa39c; }
+.term-body .hd { color: #a7c4be; }
+.term-rule { border: 0; border-top: 1px solid rgba(255,255,255,0.14); margin: 10px 0; }
+.term-row { display: flex; justify-content: space-between; gap: 24px; white-space: nowrap; }
+.save { color: #5fd38a; font-weight: 700; }
+
+/* section titles */
+h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+.lede { margin-top: 10px; color: var(--muted); max-width: 62ch; }
+
+/* split of labor */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 32px; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.split .col { padding: 26px 28px; background: var(--card); }
+.split .col + .col { border-left: 1px solid var(--rule); }
+.split h3 { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.split .col.ai h3 { color: var(--muted); }
+.split .col.py h3 { color: var(--teal); }
+.split ul { margin-top: 14px; list-style: none; }
+.split li { padding: 7px 0; border-top: 1px solid var(--rule); font-size: 15px; }
+.split li:first-child { border-top: 0; }
+
+/* receipts */
+.receipts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 32px; }
+.receipt { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 20px; }
+.receipt .n { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; color: var(--ink); }
+.receipt .l { margin-top: 4px; font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+.bugstory {
+  margin-top: 18px; padding: 16px 20px; background: var(--card);
+  border: 1px solid var(--rule); border-left: 3px solid var(--teal); border-radius: 0 8px 8px 0;
+  font-size: 15px; color: var(--muted);
+}
+.bugstory strong { color: var(--ink); }
+
+/* demo */
+.demo-img { margin: 32px auto 0; max-width: 760px; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(16,32,29,0.08); }
+.demo-img img { display: block; width: 100%; height: auto; }
+
+/* privacy + scope */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 32px; }
+.plist { list-style: none; }
+.plist li { padding: 12px 0 12px 30px; border-top: 1px solid var(--rule); font-size: 15px; position: relative; }
+.plist li:first-child { border-top: 0; }
+.plist li::before { position: absolute; left: 0; top: 12px; font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+.plist.yes li::before { content: "+"; color: var(--pass); }
+.plist.no li::before { content: "\2192"; color: var(--muted); }
+.scope-note { margin-top: 16px; font-size: 14px; color: var(--muted); }
+h3.colhead { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); margin-bottom: 6px; }
+
+/* FAQ */
+.faq { margin-top: 24px; border-top: 1px solid var(--rule); }
+.faq details { border-bottom: 1px solid var(--rule); }
+.faq summary {
+  cursor: pointer; padding: 18px 0; font-weight: 600; font-size: 16px;
+  list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font-family: 'JetBrains Mono', monospace; color: var(--muted); font-size: 18px; }
+.faq details[open] summary::after { content: "\2212"; }
+.faq .a { padding: 0 0 18px; color: var(--muted); font-size: 15px; max-width: 72ch; }
+.faq .a strong { color: var(--ink); }
+
+/* footer */
+footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14px; color: var(--muted); }
+.foot-grid { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.foot-grid a { color: var(--muted); }
+.foot-grid a:hover { color: var(--ink); }
+.disclaimer { margin-top: 18px; font-size: 13px; max-width: 90ch; }
+
+/* motion: one orchestrated reveal */
+@media (prefers-reduced-motion: no-preference) {
+  .term-body > div { opacity: 0; animation: rise 0.5s ease forwards; }
+  .term-body > div:nth-child(1) { animation-delay: 0.15s; }
+  .term-body > div:nth-child(2) { animation-delay: 0.45s; }
+  .term-body > div:nth-child(3) { animation-delay: 0.75s; }
+  .term-body > div:nth-child(4) { animation-delay: 1.0s; }
+  .term-body > div:nth-child(5) { animation-delay: 1.25s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+}
+
+@media (max-width: 860px) {
+  section { padding: 52px 0; }
+  .hero { padding: 44px 0 52px; }
+  .hero-grid, .split, .two-col { grid-template-columns: 1fr; }
+  .split .col + .col { border-left: 0; border-top: 1px solid var(--rule); }
+  .receipts { grid-template-columns: 1fr 1fr; }
+  .head-links a.plain { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="strip"><strong>ITR-3/4 (non-audit) due 31 Aug 2026.</strong> Missed 31 Jul? Belated returns work until 31 Dec 2026.</div>
+
+<header>
+  <div class="wrap head-in">
+    <a class="wordmark" href="/">itr<span>-wala</span></a>
+    <nav class="head-links">
+      <a class="plain" href="#trust">Why trust it</a>
+      <a class="plain" href="#privacy">Privacy</a>
+      <a class="plain" href="#faq">FAQ</a>
+      <a class="gh-btn" href="https://github.com/karanb192/itr-wala" target="_blank" rel="noopener">GitHub
+        <img src="https://img.shields.io/github/stars/karanb192/itr-wala?style=flat-square&label=%E2%98%85&labelColor=17201f&color=106d63" alt="GitHub stars" loading="lazy">
+      </a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <h1>File your ITR from the terminal.<br><span class="accent">Every rupee computed, not guessed.</span></h1>
+      <p class="sub">Free and open source. The AI reads your Form 16 and AIS and interviews you for missed deductions; <strong>a tested Python engine does all the math</strong>. No CA, no ₹3,000 fee, and only you ever click Pay, Submit, or e-Verify.</p>
+      <div class="install">
+        <code id="cmd">/plugin marketplace add karanb192/itr-wala</code>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('cmd').innerText).then(()=>{this.innerText='copied';setTimeout(()=>this.innerText='copy',1500)})">copy</button>
+      </div>
+      <div class="hero-ctas">
+        <a class="cta primary" href="https://github.com/karanb192/itr-wala" target="_blank" rel="noopener">Get it on GitHub</a>
+        <a class="cta ghost" href="#demo">See it run</a>
+      </div>
+    </div>
+    <div class="term" role="img" aria-label="Terminal showing the tax engine's self-test passing and a regime comparison that finds Rs 42,811 in savings">
+      <div class="term-bar"><i></i><i></i><i></i></div>
+      <div class="term-body">
+        <div><span class="p">$</span> python3 scripts/test_tax_engine.py</div>
+        <div>Ran 47 tests in 0.002s &nbsp;<span class="ok">OK</span></div>
+        <div><hr class="term-rule"><span class="hd">Income-tax computation · FY 2025-26 (AY 2026-27)</span></div>
+        <div>
+          <div class="term-row"><span class="dim">[NEW] Total income</span><span class="num">25,06,700</span></div>
+          <div class="term-row"><span class="dim">[NEW] Net payable</span><span class="num">720</span></div>
+          <div class="term-row"><span class="dim">[OLD] Net payable</span><span class="num">43,530</span></div>
+        </div>
+        <div><hr class="term-rule"><span class="save">RECOMMENDED: NEW regime (saves Rs. 42,811)</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="trust" style="padding-top: 0;">
+  <div class="wrap">
+    <h2>The AI never does the math. That is the whole point.</h2>
+    <p class="lede">Every AI tax demo this season had the same silent flaw: the model was doing the arithmetic. LLMs are magnificent at reading a Form 16 and terrible at applying s.87A marginal relief. itr-wala splits the work the way it should be split.</p>
+    <div class="split">
+      <div class="col ai">
+        <h3>The AI reads and explains</h3>
+        <ul>
+          <li>Reads your Form 16, AIS, broker P&amp;L</li>
+          <li>Interviews you for missed deductions</li>
+          <li>Explains every number in plain language</li>
+          <li>Walks you through the portal, field by field</li>
+        </ul>
+      </div>
+      <div class="col py">
+        <h3>Tested Python computes</h3>
+        <ul>
+          <li>Every slab, rebate, surcharge, cess figure</li>
+          <li>Old vs new regime, to the exact rupee</li>
+          <li>87A relief, 111A/112A/VDA special rates, 234A/B/C interest</li>
+          <li>Cross-checks your TDS against 26AS and AIS totals</li>
+        </ul>
+      </div>
+    </div>
+    <div class="receipts">
+      <div class="receipt"><div class="n">47</div><div class="l">golden tests, every expected value hand-derived from the statute</div></div>
+      <div class="receipt"><div class="n">104</div><div class="l">validator tests gating malformed or PAN-bearing inputs</div></div>
+      <div class="receipt"><div class="n">350k+</div><div class="l">randomized returns fuzzed against invariants the law implies</div></div>
+      <div class="receipt"><div class="n">0</div><div class="l">pip installs: stdlib Python 3.9+, runs entirely on your machine</div></div>
+    </div>
+    <p class="bugstory"><strong>These layers catch real bugs.</strong> The fuzzer found a one-in-350,000 rounding edge where ₹52,880 more salary computed ₹10 less tax. Fixed, pinned as a regression test. That find-fix-pin loop is the thing a prompt-only tax tool cannot run. <strong>If your CA can show you their test suite, hire them.</strong></p>
+  </div>
+</section>
+
+<section id="demo" style="padding-top: 0;">
+  <div class="wrap">
+    <h2>What a session looks like</h2>
+    <p class="lede">Self-test first, so the engine proves its math before touching your return. Then documents, extraction with validation, a deduction hunt, both regimes computed, and a filing pack that maps every portal field to its value.</p>
+    <div class="demo-img">
+      <img src="https://raw.githubusercontent.com/karanb192/itr-wala/main/demo/demo.gif" alt="itr-wala demo: golden tests pass, income validates against document totals, both regimes computed, Rs 42,811 found" loading="lazy">
+    </div>
+  </div>
+</section>
+
+<section id="privacy" style="padding-top: 0;">
+  <div class="wrap">
+    <h2>Privacy, honestly</h2>
+    <div class="two-col">
+      <div>
+        <h3 class="colhead">What stays on your machine</h3>
+        <ul class="plist yes">
+          <li>All tax math: the Python scripts run locally, nothing computed leaves</li>
+          <li>PAN, Aadhaar, account numbers: not needed, and <strong>the validator refuses any input containing a PAN-shaped or Aadhaar-shaped string</strong></li>
+          <li>Your portal password and OTP: never seen, never asked for</li>
+          <li>The three final acts: only you click Pay, Submit, e-Verify</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="colhead">What you should know</h3>
+        <ul class="plist no">
+          <li>Documents you ask the AI to read are processed by the model, so that part leaves your machine, like anything you paste into an AI tool</li>
+          <li>The skill tells you this up front and invites you to redact identifiers first</li>
+          <li>A generated .gitignore keeps tax documents out of your repos</li>
+        </ul>
+        <p class="scope-note">Out of scope, and it says so instead of guessing: non-residents, F&amp;O and intraday, audit cases, foreign tax credit, ESOP deferral. Built by <a href="https://karanbansal.in" target="_blank" rel="noopener">someone who files his own taxes with it</a> and does security for a living.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="padding-top: 0;">
+  <div class="wrap">
+    <h2>Questions people actually ask</h2>
+    <div class="faq">
+      <details>
+        <summary>Can I trust an LLM with my taxes?</summary>
+        <p class="a">No, and that is the point. You are trusting a tested Python engine with the math and an LLM with reading PDFs and explaining things, which are the two things each is actually good at. The test suite runs in front of you before your return is touched, and you can run it yourself.</p>
+      </details>
+      <details>
+        <summary>Is this allowed?</summary>
+        <p class="a">Yes. You prepare your own return and file it yourself on the government portal, same as using the portal's own forms, just with better preparation. The tool never submits anything on your behalf.</p>
+      </details>
+      <details>
+        <summary>What does it cost?</summary>
+        <p class="a">Nothing. MIT-licensed, free forever. The only cost is your existing Claude Code (or Codex/Gemini CLI) subscription doing the document reading. The tax math is plain Python and costs nothing no matter how many times you recheck.</p>
+      </details>
+      <details>
+        <summary>Why not just use ClearTax, Quicko, or a CA?</summary>
+        <p class="a">Use whatever you trust. This is for people who would rather review every number themselves than pay ₹3,000+ to hope someone else did. The filing pack it generates is also a great ₹0 first draft to hand a CA for a cheap review, <strong>it is built to be handed over</strong>.</p>
+      </details>
+      <details>
+        <summary>Which forms and situations does it cover?</summary>
+        <p class="a">Resident individuals, AY 2026-27, ITR-1 through ITR-4 with the form picked for you: salary and multiple employers, house property, equity and MF capital gains, crypto, interest and dividends, family pension, presumptive income basics, both regimes with surcharge and marginal relief, advance-tax interest, late fees, and belated returns. What it cannot compute safely, it names and points you to a CA for.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <span class="mono" style="font-weight:700; color: var(--ink);">itr<span style="color:var(--teal)">-wala</span></span>
+        · MIT licensed · built by <a href="https://karanbansal.in" target="_blank" rel="noopener">Karan Bansal</a>
+      </div>
+      <div>
+        <a href="https://github.com/karanb192/itr-wala" target="_blank" rel="noopener">GitHub</a> ·
+        <a href="https://github.com/karanb192/itr-wala/issues" target="_blank" rel="noopener">Report a bug</a> ·
+        <a href="https://github.com/karanb192/itr-wala/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contribute</a> ·
+        <a href="https://x.com/karanb192" target="_blank" rel="noopener">X</a>
+      </div>
+    </div>
+    <p class="disclaimer">itr-wala is open-source software, not a chartered accountant, and nothing here is professional tax advice. It computes with tested code and shows you everything, but you review, you file, and responsibility for your return stays with you. Credits: the MIT-licensed file-itr walked first; robbalian/claude-tax-filing proved the scripts-not-vibes pattern for US returns.</p>
+  </div>
+</footer>
+
+<script data-goatcounter="https://karanbansal.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

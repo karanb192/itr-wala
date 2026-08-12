@@ -198,8 +198,8 @@ The installer prints the resolved commit hash on every fetch, so an unattended r
 
 ## Roadmap
 
-- Generate the **offline-utility upload JSON** against the official published schema (upload one file instead of typing 20 schedules)
-- RSU/ESPP + Schedule FA depth (the most underserved, highest-anxiety segment)
+- Generate the **offline-utility upload JSON** against the official published schema (upload one file instead of typing 20 schedules). The format's empirical traps (schema-valid files that import blank, the camelCase-prefill trap) are documented by [CivicTaxes](https://github.com/CivicResources/CivicTaxes/blob/main/docs/utility-json-contract.md) (MIT, community-maintained)
+- RSU/ESPP + Schedule FA depth (the most underserved, highest-anxiety segment). For bulk FA entry, [CivicTaxes' CSV upload doc](https://github.com/CivicResources/CivicTaxes/blob/main/docs/csv-upload-format.md) records what the utility's parser actually accepts
 - Revised-return (s.139(5)) workflow through 31 Mar 2027 - belated returns already work, so this repo doesn't expire on Aug 1
 - Native Windows installer · one-click `.skill` bundle for Claude desktop
 

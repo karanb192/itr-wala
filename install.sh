@@ -26,8 +26,7 @@
 #   /plugin marketplace add karanb192/itr-wala
 #   /plugin install itr-wala@itr-wala
 #
-# macOS and Linux. Windows: use WSL, or copy skills/itr-wala into
-# %USERPROFILE%\.claude\skills manually.
+# macOS, Linux, and Windows (Git Bash / WSL). PowerShell on Windows: use .\install.ps1
 
 set -euo pipefail
 
@@ -165,19 +164,30 @@ case "$TARGET" in
     ;;
 esac
 
+PYTHON_CMD=""
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_CMD="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_CMD="python"
+elif command -v py >/dev/null 2>&1; then
+  PYTHON_CMD="py"
+else
+  PYTHON_CMD="python3"
+fi
+
 echo
 echo "Verifying the tax engine (golden test suite) in each installed copy..."
 FAILED=0
 for dest in "${INSTALLED[@]}"; do
-  if PYTHONDONTWRITEBYTECODE=1 python3 "$dest/scripts/test_tax_engine.py" >/dev/null 2>&1; then
+  if PYTHONDONTWRITEBYTECODE=1 "$PYTHON_CMD" "$dest/scripts/test_tax_engine.py" >/dev/null 2>&1; then
     echo "  OK   $dest"
   else
-    echo "  FAIL $dest - run: python3 $dest/scripts/test_tax_engine.py" >&2
+    echo "  FAIL $dest - run: $PYTHON_CMD $dest/scripts/test_tax_engine.py" >&2
     FAILED=1
   fi
 done
 if [ "$FAILED" -ne 0 ]; then
-  echo "WARNING: verification failed (is python3 3.9+ on PATH?). Do not trust the skill until the self-test passes." >&2
+  echo "WARNING: verification failed (is Python 3.9+ on PATH?). Do not trust the skill until the self-test passes." >&2
 fi
 
 echo

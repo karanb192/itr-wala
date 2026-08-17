@@ -2,7 +2,7 @@
 
 Agent skill for filing Indian income tax returns (ITR), FY 2025-26 / AY 2026-27.
 
-- `DEFAULT_REPO` in `install.sh` must always name THIS repo, so any copy
+- `DEFAULT_REPO` in `install.sh` and `install.ps1` must always name THIS repo, so any copy
   installs its own reviewed code by default - see CONTRIBUTING.md rule 5 and
   "Install from a branch you reviewed" in README.md.
 - The skill lives at `skills/itr-wala/SKILL.md` (Agent Skills standard -
@@ -11,7 +11,7 @@ Agent skill for filing Indian income tax returns (ITR), FY 2025-26 / AY 2026-27.
 - No install step is needed to use the skill from inside this repo: read
   `SKILL.md` and invoke the scripts by path. Installing only copies the skill
   somewhere an agent auto-discovers it - globally under `$HOME` by default,
-  or into one project with `install.sh --here` / `--project DIR` (preferred
+  or into one project with `install.sh --here` / `install.ps1 -Here` / `--project DIR` (preferred
   for tax work: the skill sits beside the documents and nothing else sees it).
 - All tax arithmetic is done by `skills/itr-wala/scripts/tax_engine.py`
   (stdlib-only Python, golden-tested). Agents must never compute tax figures

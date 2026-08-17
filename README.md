@@ -9,10 +9,10 @@
 ```
 # Review-first (recommended): clone, read it, install the bytes you just read
 git clone https://github.com/karanb192/itr-wala.git
-cd itr-wala && ./install.sh          # also: codex, gemini, all
+cd itr-wala && ./install.sh          # macOS / Linux / Git Bash (PowerShell: .\install.ps1)
 
 # Or scope it to just the folder your tax documents live in
-cd ~/tax-2026 && ~/itr-wala/install.sh --here
+cd ~/tax-2026 && ~/itr-wala/install.sh --here    # PowerShell: .\install.ps1 -Here
 
 # Claude Code plugin (name whichever repo you trust)
 /plugin marketplace add karanb192/itr-wala
@@ -126,30 +126,29 @@ Yes. You prepare your own return and file it yourself on the government portal -
 **What happens next year?**
 Rates live in one constants block, pinned to AY 2026-27, with the test suite enforcing them. The skill refuses to compute other years rather than silently using stale slabs. New Finance Act → one PR → tests updated.
 
-**Windows?**
-WSL works today; native Windows paths are on the roadmap. macOS and Linux are first-class.
+**Windows, macOS, and Linux are all supported.** On Windows PowerShell use `.\install.ps1`, or use `./install.sh` in Git Bash, WSL, or macOS/Linux.
 
 ## Install options
 
-Clone first, then run `./install.sh` from inside the checkout - it copies the files in front of you and makes no network calls at all.
+Clone first, then run `./install.sh` (or `.\install.ps1` on Windows PowerShell) from inside the checkout - it copies the files in front of you and makes no network calls at all.
 
 **Which agent** - the positional argument:
 
-| Tool | How |
-|---|---|
-| Claude Code (plain skill) | `./install.sh` |
-| OpenAI Codex CLI | `./install.sh codex` (invoke with `$itr-wala`) |
-| Gemini CLI | `./install.sh gemini` |
-| Everything | `./install.sh all` |
-| Claude Code plugin (updates with `/plugin marketplace update itr-wala`) | `/plugin marketplace add karanb192/itr-wala` → `/plugin install itr-wala@itr-wala` |
+| Tool | How (macOS/Linux/Git Bash) | How (Windows PowerShell) |
+|---|---|---|
+| Claude Code (plain skill) | `./install.sh` | `.\install.ps1` |
+| OpenAI Codex CLI | `./install.sh codex` (invoke with `$itr-wala`) | `.\install.ps1 codex` |
+| Gemini CLI | `./install.sh gemini` | `.\install.ps1 gemini` |
+| Everything | `./install.sh all` | `.\install.ps1 all` |
+| Claude Code plugin (updates with `/plugin marketplace update itr-wala`) | `/plugin marketplace add karanb192/itr-wala` → `/plugin install itr-wala@itr-wala` | Same |
 
 **Global or project-local** - the scope flag:
 
-| Scope | Command | Lands in |
-|---|---|---|
-| Global (default) | `./install.sh all` | `~/.claude/skills/`, `~/.agents/skills/`, `~/.codex/skills/`, `~/.gemini/skills/` |
-| Project-local | `cd ~/tax-2026 && /path/to/itr-wala/install.sh --here all` | `~/tax-2026/.claude/skills/`, `.agents/skills/`, `.gemini/skills/` |
-| Project-local, named | `./install.sh --project ~/tax-2026 all` | the same, without the `cd` |
+| Scope | Command (Bash) | Command (PowerShell) | Lands in |
+|---|---|---|---|
+| Global (default) | `./install.sh all` | `.\install.ps1 all` | `~/.claude/skills/`, `~/.agents/skills/`, `~/.codex/skills/`, `~/.gemini/skills/` |
+| Project-local | `cd ~/tax-2026 && /path/to/itr-wala/install.sh --here all` | `cd C:\tax-2026; \path\to\itr-wala\install.ps1 -Here all` | `~/tax-2026/.claude/skills/`, `.agents/skills/`, `.gemini/skills/` |
+| Project-local, named | `./install.sh --project ~/tax-2026 all` | `.\install.ps1 -Project C:\tax-2026 all` | the same, without the `cd` |
 
 **Project-local is usually the better fit for tax work.** The skill lives beside the return it prepared, so next year's copy cannot quietly follow you into unrelated projects, and deleting the folder removes it completely - which matters for a tool whose whole value is that you know exactly what version ran against your Form 16. Start your CLI from that directory (or below it) for the skill to be found.
 
@@ -201,7 +200,7 @@ The installer prints the resolved commit hash on every fetch, so an unattended r
 - Generate the **offline-utility upload JSON** against the official published schema (upload one file instead of typing 20 schedules). The format's empirical traps (schema-valid files that import blank, the camelCase-prefill trap) are documented by [CivicTaxes](https://github.com/CivicResources/CivicTaxes/blob/main/docs/utility-json-contract.md) (MIT, community-maintained)
 - RSU/ESPP + Schedule FA depth (the most underserved, highest-anxiety segment). For bulk FA entry, [CivicTaxes' CSV upload doc](https://github.com/CivicResources/CivicTaxes/blob/main/docs/csv-upload-format.md) records what the utility's parser actually accepts
 - Revised-return (s.139(5)) workflow through 31 Mar 2027 - belated returns already work, so this repo doesn't expire on Aug 1
-- Native Windows installer · one-click `.skill` bundle for Claude desktop
+- One-click `.skill` bundle for Claude desktop
 
 ## Contributing
 

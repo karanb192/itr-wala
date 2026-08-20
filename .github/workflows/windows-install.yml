@@ -1,0 +1,81 @@
+# CI probe for PR #11 (native Windows installer). Runs install.ps1 on real
+# windows-latest runners under BOTH Windows PowerShell 5.1 and PowerShell 7,
+# plus install.sh under Git Bash on Windows. Branch-scoped on purpose; if the
+# PR merges, fold the useful jobs into tests.yml.
+name: windows-install
+on:
+  push:
+    branches: [ci/pr11-windows]
+  workflow_dispatch:
+
+jobs:
+  install-ps1:
+    strategy:
+      fail-fast: false
+      matrix:
+        ps: [powershell, pwsh]
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: ${{ matrix.ps }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Global install, all agents
+        run: |
+          .\install.ps1 all
+          if ($LASTEXITCODE -ne 0) { throw "install.ps1 all exited $LASTEXITCODE" }
+
+      - name: Assert all four copies landed
+        run: |
+          $paths = @("$HOME\.claude\skills\itr-wala\SKILL.md",
+                     "$HOME\.agents\skills\itr-wala\SKILL.md",
+                     "$HOME\.codex\skills\itr-wala\SKILL.md",
+                     "$HOME\.gemini\skills\itr-wala\SKILL.md")
+          foreach ($p in $paths) { if (-not (Test-Path $p)) { throw "missing: $p" } }
+          Write-Host "all four copies present"
+
+      - name: Project-local -Here install
+        run: |
+          $proj = Join-Path $env:TEMP "tax-2026"
+          New-Item -ItemType Directory -Path $proj -Force | Out-Null
+          Push-Location $proj
+          & (Join-Path $env:GITHUB_WORKSPACE "install.ps1") -Here
+          if ($LASTEXITCODE -ne 0) { throw "-Here install exited $LASTEXITCODE" }
+          if (-not (Test-Path ".claude\skills\itr-wala\SKILL.md")) { throw "project-local copy missing" }
+          Pop-Location
+
+      - name: Fetch path from outside a checkout (repo override to local clone)
+        run: |
+          $work = Join-Path $env:TEMP "fetch-test"
+          New-Item -ItemType Directory -Path $work -Force | Out-Null
+          Copy-Item install.ps1 $work
+          Push-Location $work
+          $env:ITR_WALA_REPO = $env:GITHUB_WORKSPACE
+          .\install.ps1 claude
+          if ($LASTEXITCODE -ne 0) { throw "fetch-path install exited $LASTEXITCODE" }
+          Pop-Location
+
+      - name: Engine golden tests directly on Windows
+        run: |
+          python (Join-Path "skills" "itr-wala" "scripts" "test_tax_engine.py")
+          if ($LASTEXITCODE -ne 0) { throw "engine tests failed on windows" }
+
+      - name: PSScriptAnalyzer (informational)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction SilentlyContinue
+          Invoke-ScriptAnalyzer -Path .\install.ps1 -Severity Warning,Error
+
+  install-sh-gitbash:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: install.sh all under Git Bash on Windows
+        run: ./install.sh all
+      - name: Assert the Claude copy landed
+        run: test -f "$HOME/.claude/skills/itr-wala/SKILL.md" && echo ok

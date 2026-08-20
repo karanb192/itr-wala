@@ -226,11 +226,19 @@ foreach ($dest in $Installed) {
     $testScript = Join-Path $dest "scripts\test_tax_engine.py"
     $env:PYTHONDONTWRITEBYTECODE = "1"
 
+    # unittest writes its progress dots to stderr. Under Windows PowerShell 5.1
+    # with $ErrorActionPreference = 'Stop' (CI default, and a common user
+    # setting), redirecting a native command's stderr turns that output into a
+    # terminating NativeCommandError. Relax EAP for this one call and let
+    # $LASTEXITCODE carry the real verdict.
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     if ($PythonCmd -eq "py") {
-        & py -3 $testScript *>$null
+        & py -3 $testScript 2>&1 | Out-Null
     } else {
-        & $PythonCmd $testScript *>$null
+        & $PythonCmd $testScript 2>&1 | Out-Null
     }
+    $ErrorActionPreference = $prevEAP
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  OK   $dest"

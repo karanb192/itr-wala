@@ -58,7 +58,8 @@ jobs:
 
       - name: Engine golden tests directly on Windows
         run: |
-          python (Join-Path "skills" "itr-wala" "scripts" "test_tax_engine.py")
+          $ErrorActionPreference = "Continue"
+          & python "skills\itr-wala\scripts\test_tax_engine.py" 2>&1 | ForEach-Object { "$_" }
           if ($LASTEXITCODE -ne 0) { throw "engine tests failed on windows" }
 
       - name: PSScriptAnalyzer (informational)

@@ -1,6 +1,6 @@
 # itr-wala
 
-[![tests](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml/badge.svg)](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml)
+[![tests](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml/badge.svg)](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml) [![skills.sh installs](https://skills.sh/b/karanb192/itr-wala)](https://skills.sh/karanb192/itr-wala)
 
 **File your Indian income tax return from your terminal. No CA, no ₹3,000 fee, no 3 hours on the portal. Every rupee of tax math computed by tested code, not by an LLM.**
 
@@ -17,6 +17,9 @@ cd ~/tax-2026 && ~/itr-wala/install.sh --here
 # Claude Code plugin (name whichever repo you trust)
 /plugin marketplace add karanb192/itr-wala
 /plugin install itr-wala@itr-wala
+
+# Or the skills.sh one-liner (fetches the default branch head; pick your agent when prompted)
+npx skills add karanb192/itr-wala
 ```
 
 Run from a checkout, `install.sh` **never touches the network** - it copies the files you just read. See [Install from a branch you reviewed](#install-from-a-branch-you-reviewed) for why that matters when the tool handles your salary and bank data.
@@ -142,6 +145,7 @@ Clone first, then run `./install.sh` from inside the checkout - it copies the fi
 | Gemini CLI | `./install.sh gemini` |
 | Everything | `./install.sh all` |
 | Claude Code plugin (updates with `/plugin marketplace update itr-wala`) | `/plugin marketplace add karanb192/itr-wala` → `/plugin install itr-wala@itr-wala` |
+| [skills.sh](https://skills.sh/karanb192/itr-wala) CLI, any supported agent | `npx skills add karanb192/itr-wala` (fetches the default branch head; built-in agent picker) |
 
 **Global or project-local** - the scope flag:
 

@@ -4,7 +4,9 @@
 
 **File your Indian income tax return from your terminal. No CA, no ₹3,000 fee, no 3 hours on the portal. Every rupee of tax math computed by tested code, not by an LLM.**
 
-⏳ **AY 2026-27 deadlines: ITR-1/2 → 31 July 2026 · ITR-3/4 (non-audit) → 31 August 2026.**
+⏳ **AY 2026-27 due dates (ITR-1/2 → 31 July, ITR-3/4 non-audit → 31 August) have passed. You can still file a belated return until 31 December 2026: late fee ₹1,000 if income is up to ₹5 lakh, else ₹5,000 (section 234F), plus interest on any unpaid tax.**
+
+> **Seen in the wild:** a [reel by @ezsnippet](https://www.instagram.com/reels/DcbBPwszsVR/) (3.7M followers) walked through this repo: *"ab tum bina CA ke bhi Income Tax return bhar sakte ho, ITR-Wala use karke."* 1.2M views in a week, and the repo's busiest week so far. Filed with itr-wala? [Two lines in this thread](https://github.com/karanb192/itr-wala/issues/10) help the next filer.
 
 ```
 # Review-first (recommended): clone, read it, install the bytes you just read

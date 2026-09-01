@@ -1,0 +1,22 @@
+{
+  "name": "itr-wala",
+  "version": "1.2.0",
+  "description": "File your Indian income tax return (ITR) from your terminal - deterministic tax engine, both regimes, AY 2026-27.",
+  "author": {
+    "name": "Karan Bansal",
+    "url": "https://karanbansal.in"
+  },
+  "homepage": "https://github.com/karanb192/itr-wala",
+  "repository": "https://github.com/karanb192/itr-wala",
+  "license": "MIT",
+  "keywords": ["itr", "india", "income-tax", "tax-filing", "form-16", "ais", "regime-comparison"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ITR Wala",
+    "shortDescription": "File your Indian ITR from the terminal.",
+    "longDescription": "Reads Form 16/AIS, runs a deterministic tax engine for both regimes (every rupee computed by tested code, not by the model), reconciles TDS, and walks you through the e-filing portal. You always pay, submit, and e-verify yourself.",
+    "developerName": "Karan Bansal",
+    "category": "Productivity",
+    "websiteURL": "https://itr-wala.karanbansal.in"
+  }
+}

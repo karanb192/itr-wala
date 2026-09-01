@@ -20,6 +20,10 @@ cd ~/tax-2026 && ~/itr-wala/install.sh --here
 /plugin marketplace add karanb192/itr-wala
 /plugin install itr-wala@itr-wala
 
+# Codex plugin (same repo doubles as a Codex marketplace)
+codex plugin marketplace add https://github.com/karanb192/itr-wala
+codex plugin add itr-wala@itr-wala
+
 # Or the skills.sh one-liner (fetches the default branch head; pick your agent when prompted)
 npx skills add karanb192/itr-wala
 ```
@@ -147,6 +151,7 @@ Clone first, then run `./install.sh` from inside the checkout - it copies the fi
 | Gemini CLI | `./install.sh gemini` |
 | Everything | `./install.sh all` |
 | Claude Code plugin (updates with `/plugin marketplace update itr-wala`) | `/plugin marketplace add karanb192/itr-wala` → `/plugin install itr-wala@itr-wala` |
+| OpenAI Codex plugin (updates with `codex plugin marketplace upgrade`) | `codex plugin marketplace add https://github.com/karanb192/itr-wala` → `codex plugin add itr-wala@itr-wala` |
 | [skills.sh](https://skills.sh/karanb192/itr-wala) CLI, any supported agent | `npx skills add karanb192/itr-wala` (fetches the default branch head; built-in agent picker) |
 
 **Global or project-local** - the scope flag:

@@ -1,6 +1,6 @@
 # itr-wala
 
-[![tests](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml/badge.svg)](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml) [![skills.sh installs](https://skills.sh/b/karanb192/itr-wala)](https://skills.sh/karanb192/itr-wala)
+[![tests](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml/badge.svg)](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml) [![skills.sh installs](https://skills.sh/b/karanb192/itr-wala)](https://skills.sh/karanb192/itr-wala) [![GitHub stars](https://img.shields.io/github/stars/karanb192/itr-wala?style=flat-square)](https://github.com/karanb192/itr-wala/stargazers)
 
 **File your Indian income tax return from your terminal. No CA, no ₹3,000 fee, no 3 hours on the portal. Every rupee of tax math computed by tested code, not by an LLM.**
 
@@ -51,7 +51,7 @@ itr-wala splits the work the way it should be split:
 
 The math is defended in three layers, all shipped in the repo and run in CI on every commit:
 
-1. **47 golden tests** - every expected value hand-derived from the statute first: the 87A rebate cliff and its marginal relief, capital-gains exemption ordering, s.71 loss set-off, the surcharge tiers (including the exclusive-income tests for the 25%/37% slabs and the 15% ceiling on capital-gains tax), and 234A/B/C/F interest down to the month-counting and challan-date edge cases.
+1. **51 golden tests** - every expected value hand-derived from the statute first: the 87A rebate cliff and its marginal relief, capital-gains exemption ordering, s.71 loss set-off, the surcharge tiers (including the exclusive-income tests for the 25%/37% slabs and the 15% ceiling on capital-gains tax), and 234A/B/C/F interest down to the month-counting and challan-date edge cases.
 2. **A 104-test suite for the input validator** - the gate that rejects malformed, mistyped, or PAN-bearing inputs before they can reach the engine.
 3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) - generates thousands of randomized, boundary-biased returns and asserts invariants the law implies: more income can never mean less tax in the new regime, cess is exactly 4%, rounding follows s.288A/288B, recommendations match the cheaper legal option. Seeded and deterministic; CI replays 3,000 cases on every commit, and 350,000+ were swept before release.
 
@@ -59,8 +59,8 @@ The skill runs the golden suite in front of you before touching your return:
 
 ```
 $ python3 skills/itr-wala/scripts/test_tax_engine.py
-...............................................
-Ran 47 tests in 0.002s
+...................................................
+Ran 51 tests in 0.003s
 OK
 ```
 

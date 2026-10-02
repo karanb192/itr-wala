@@ -103,6 +103,15 @@ Income-tax computation - FY 2025-26 (AY 2026-27)
   RECOMMENDED: NEW regime (saves Rs. 42,811)
 ```
 
+## Optional invitation
+
+After a useful outcome, the skill may offer one optional star invitation.
+It records the offer in `~/.cache/itr-wala/star-invitation.json`
+(or under `XDG_CACHE_HOME`) before asking, so later conversations skip it.
+Clearing the cache or using another machine can reset the record. Starring
+through GitHub CLI requires an explicit yes. If the helper cannot run or
+write its record, the skill skips the invitation.
+
 ## Privacy, honestly
 
 - The **Python scripts run entirely on your machine**. Tax math never leaves.

@@ -1,6 +1,6 @@
 {
   "name": "itr-wala",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "File your Indian income tax return (ITR) from your terminal - deterministic tax engine, both regimes, AY 2026-27.",
   "author": {
     "name": "Karan Bansal",

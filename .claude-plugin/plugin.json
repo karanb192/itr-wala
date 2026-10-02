@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "itr-wala",
   "displayName": "ITR Wala",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "File your Indian income tax return (ITR) from your terminal - deterministic tax engine, both regimes, AY 2026-27.",
   "skills": ["./skills/itr-wala"],
   "author": {

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>itr-wala · File your Indian ITR from the terminal, every rupee computed by tested code</title>
-<meta name="description" content="Free, open-source ITR filing for AY 2026-27. The AI reads your Form 16 and AIS and interviews you; a tested Python engine computes every rupee. 51 golden tests, 104 validator tests, 350,000+ fuzzed returns. You alone pay, submit, e-verify.">
+<meta name="description" content="FY 2025-26 returns and FY 2026-27 tax and advance-payment planning. Tested Python computes every rupee. 73 tax tests, 122 validator tests, both years in CI. You alone pay, submit and e-verify.">
 <meta name="author" content="Karan Bansal">
 <link rel="canonical" href="https://itr-wala.karanbansal.in/">
 
@@ -34,7 +34,7 @@
   "operatingSystem": "macOS, Linux",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" },
   "license": "https://github.com/karanb192/itr-wala/blob/main/LICENSE",
-  "softwareVersion": "AY 2026-27",
+  "softwareVersion": "1.3.0",
   "author": { "@id": "https://karanbansal.in/#karan" },
   "sameAs": "https://github.com/karanb192/itr-wala"
 }
@@ -106,6 +106,7 @@ header { border-bottom: 1px solid var(--rule); background: var(--paper); }
 /* hero */
 .hero { padding: 64px 0 72px; }
 .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+.hero-grid > * { min-width: 0; }
 h1 {
   font-family: 'JetBrains Mono', monospace;
   font-size: clamp(28px, 3.6vw, 40px);
@@ -123,7 +124,7 @@ h1 .accent { color: var(--teal); }
 }
 .install code {
   font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: var(--ink);
-  overflow-x: auto; white-space: nowrap; flex: 1; scrollbar-width: none;
+  overflow-x: auto; white-space: nowrap; flex: 1; min-width: 0; scrollbar-width: none;
 }
 .copy-btn {
   font-family: 'JetBrains Mono', monospace; font-size: 12px;
@@ -247,7 +248,7 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
 </head>
 <body>
 
-<div class="strip"><strong>AY 2026-27 due dates have passed.</strong> Belated returns work until 31 Dec 2026 (late fee ₹1,000 up to ₹5L income, else ₹5,000). · As seen in <a href="https://www.instagram.com/reels/DcbBPwszsVR/" target="_blank" rel="noopener">@ezsnippet's reel</a>: 1.2M views.</div>
+<div class="strip"><strong>Two income years, one tool.</strong> FY 2025-26 belated returns through 31 Dec 2026. FY 2026-27 advance-tax planning for 15 Dec and 15 Mar. <a href="https://github.com/karanb192/itr-wala/blob/main/skills/itr-wala/references/rates-fy2026-27.md">Rules and sources</a>.</div>
 
 <header>
   <div class="wrap head-in">
@@ -268,6 +269,7 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
     <div>
       <h1>File your ITR from the terminal.<br><span class="accent">Every rupee computed, not guessed.</span></h1>
       <p class="sub">Free and open source. The AI reads your Form 16 and AIS and interviews you for missed deductions; <strong>a tested Python engine does all the math</strong>. No CA, no ₹3,000 fee, and only you ever click Pay, Submit, or e-Verify.</p>
+      <p>The agent asks your financial year first. File for FY 2025-26, or plan FY 2026-27 advance tax from an annual forecast you approve. New-year return forms must be verified before portal guidance.</p>
       <div class="install">
         <code id="cmd">/plugin marketplace add karanb192/itr-wala</code>
         <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('cmd').innerText).then(()=>{this.innerText='copied';setTimeout(()=>this.innerText='copy',1500)})">copy</button>
@@ -281,11 +283,12 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
         <a class="cta ghost" href="#demo">See it run</a>
       </div>
     </div>
-    <div class="term" role="img" aria-label="Terminal showing the tax engine's self-test passing and a regime comparison that finds Rs 42,811 in savings">
+    <div class="term" role="img" aria-label="Illustrative layout of bundled FY 2025-26 example output, not a terminal screenshot">
       <div class="term-bar"><i></i><i></i><i></i></div>
       <div class="term-body">
         <div><span class="p">$</span> python3 scripts/test_tax_engine.py</div>
-        <div>Ran 51 tests in 0.003s &nbsp;<span class="ok">OK</span></div>
+        <div>Ran 73 tests &nbsp;<span class="ok">OK</span></div>
+        <div class="dim">Example output layout, not a terminal capture.</div>
         <div><hr class="term-rule"><span class="hd">Income-tax computation · FY 2025-26 (AY 2026-27)</span></div>
         <div>
           <div class="term-row"><span class="dim">[NEW] Total income</span><span class="num">25,06,700</span></div>
@@ -323,9 +326,9 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
       </div>
     </div>
     <div class="receipts">
-      <div class="receipt"><div class="n">51</div><div class="l">golden tests, every expected value hand-derived from the statute</div></div>
-      <div class="receipt"><div class="n">104</div><div class="l">validator tests gating malformed or PAN-bearing inputs</div></div>
-      <div class="receipt"><div class="n">350k+</div><div class="l">randomized returns fuzzed against invariants the law implies</div></div>
+      <div class="receipt"><div class="n">73</div><div class="l">tax tests with hand-derived rupee expectations and both-year coverage</div></div>
+      <div class="receipt"><div class="n">122</div><div class="l">validator tests rejecting wrong-year, malformed or PAN-bearing inputs</div></div>
+      <div class="receipt"><div class="n">12k</div><div class="l">seeded cases per Python version in CI, across both years and purposes</div></div>
       <div class="receipt"><div class="n">0</div><div class="l">pip installs: stdlib Python 3.9+, runs entirely on your machine</div></div>
     </div>
     <p class="bugstory"><strong>These layers catch real bugs.</strong> The fuzzer found a one-in-350,000 rounding edge where ₹52,880 more salary computed ₹10 less tax. Fixed, pinned as a regression test. That find-fix-pin loop is the thing a prompt-only tax tool cannot run. <strong>If your CA can show you their test suite, hire them.</strong></p>
@@ -390,7 +393,7 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
       </details>
       <details>
         <summary>Which forms and situations does it cover?</summary>
-        <p class="a">Resident individuals, AY 2026-27, ITR-1 through ITR-4 with the form picked for you: salary and multiple employers, house property, equity and MF capital gains, crypto, interest and dividends, family pension, presumptive income basics, both regimes with surcharge and marginal relief, advance-tax interest, late fees, and belated returns. What it cannot compute safely, it names and points you to a CA for.</p>
+        <p class="a">Resident individuals for FY 2025-26 and FY 2026-27: supported salary, house property, capital gains, crypto, winnings, interest, family pension and presumptive income, with both regimes and advance-tax planning. FY 2025-26 keeps ITR-1 through ITR-4 and belated filing guidance. FY 2026-27 uses Tax Year 2026-27 under the 2025 Act; notified forms and utility must be verified before final filing guidance. Buybacks, SGB exemption classification, losses and other unsupported cases need separate review. <a href="https://github.com/karanb192/itr-wala#what-it-covers-and-refuses">Full scope</a>.</p>
       </details>
     </div>
   </div>

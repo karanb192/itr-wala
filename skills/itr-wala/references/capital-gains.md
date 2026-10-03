@@ -1,6 +1,12 @@
-# Capital Gains & Crypto - FY 2025-26 (AY 2026-27)
+# Capital gains and crypto for both supported financial years
 
 When to read this: the user has sold shares, mutual funds, property, or crypto, or AIS/broker statements show SFT capital-gains rows. Classify every gain into an engine bucket here; `tax_engine.py` does ALL the arithmetic.
+
+Confirm FY before classification. Legacy schema names stay the same: for
+FY 2026-27, s.111A/112A/112 correspond to s.196/198/197, and VDA/winnings
+use s.194 tables. See [rates-fy2026-27.md](rates-fy2026-27.md). Form-selection
+notes below cover FY 2025-26 only; future-year forms must be verified.
+FY 2026-27 buybacks and SGB exemption questions are outside this workflow.
 
 ## Engine buckets (`income.capital_gains` in income.json)
 
@@ -9,10 +15,13 @@ When to read this: the user has sold shares, mutual funds, property, or crypto, 
 | `stcg_111a` | s.111A | STT-paid listed equity / equity-oriented MF / business trust units held ≤12 months | 20% |
 | `ltcg_112a` | s.112A | Same assets held >12 months. Enter the FULL gain - the engine subtracts the 1,25,000 exemption itself; never pre-subtract | 12.5% above 1,25,000 |
 | `ltcg_other` | s.112 | Other long-term assets: property (holding period 24 months), gold, unlisted shares, pre-Apr-2023 debt-MF units held >24 months | 12.5%, no indexation |
-| `stcg_slab` | slab | Non-equity short-term gains; ALL post-Apr-2023 debt-MF units (s.50AA, any holding period) | slab rates |
+| `stcg_slab` | slab | Non-equity short-term gains; specified mutual-fund units acquired on/after 1-Apr-2023 (s.50AA, any holding period) | slab rates |
 | `vda` | s.115BBH | Crypto/NFT/VDA transfer gains (sum of per-transfer positive gains only) | 30% flat |
 
-Surcharge on 111A/112A/112 tax is capped at 15% and cess is 4% - the engine applies both. The post-23-Jul-2024 rate regime covers ALL of FY 2025-26: every transfer this year is 111A @ 20% / 112A @ 12.5%. Ignore 15%/10% legacy-rate columns in broker reports.
+Surcharge on these supported CG buckets is capped at 15% and cess is 4%.
+Both supported years use 20% equity STCG and 12.5% equity LTCG, not older
+15%/10% columns. Source: [amended Act ss.196-198](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf)
+and [Finance Act 2026](https://egazette.gov.in/WriteReadData/2026/271439.pdf).
 
 All five keys must be NET POSITIVE amounts. The engine models NO loss set-off or carry-forward and the validator rejects negatives. If any bucket is a net loss, or brought-forward losses exist (Schedule CFL), the engine cannot compute this return correctly - tell the user, file via ITR-2 with the losses reported, and suggest a CA if amounts are material.
 
@@ -31,7 +40,7 @@ For buybacks in this window, the FULL consideration is deemed dividend u/s 2(22)
 
 - 30% flat + surcharge + 4% cess. Only cost of acquisition deductible - no expenses, no exchange fees.
 - NO loss set-off of any kind, not even VDA-against-VDA: `vda` = sum of positive per-transfer gains; drop loss transfers entirely (they also cannot be carried forward).
-- No basic-exemption set-off and no new-regime 87A rebate against VDA tax (engine enforces both). Old-regime 87A against VDA is a contested position - the engine applies it with a warning; verify against the portal's computation.
+- No basic-exemption set-off or new-regime rebate against VDA tax. The engine also excludes VDA/winnings from the old rebate as its conservative posture; it does not apply a contested VDA claim.
 - **Schedule VDA is mandatory**, one line per transfer (acquisition date, transfer date, cost, consideration). ITR-1/4 cannot report VDA - minimum ITR-2 (capital-gains route) or ITR-3 (trading-as-business route).
 - Reconcile 1% TDS u/s 194S: exchange statements vs 26AS/AIS. Include it in `taxes_paid.tds`. If 194S entries exist in 26AS but the user reported no VDA income, that is a notice magnet - resolve before filing.
 
@@ -43,13 +52,20 @@ Never classify by fund name or gut feel. The AIS information code plus the STT c
 |---|---|---|
 | SFT-17-LES | Sale of listed equity share | 111A / 112A |
 | SFT-18-EMF | Sale of unit of equity-oriented MF (STT amount present on the row) | 111A / 112A |
-| SFT-18-OTU | Sale of other unit (STT column zero) | Non-equity: `stcg_slab` (post-Apr-2023 units, s.50AA) or `ltcg_other` (pre-Apr-2023 units held >24 months) |
+| SFT-18-OTU | Sale of other unit (STT column zero) | Check the fund's tax classification, acquisition date and holding period; this code alone does not establish s.50AA treatment |
 
 Known traps (real CA/software errors have cost users thousands):
 - **Arbitrage funds ARE equity-oriented** (111A/112A) despite debt-like returns.
-- **Balanced-advantage / dynamic asset allocation / liquid funds are usually NOT equity-oriented** - slab STCG is the correct treatment.
+- **Balanced-advantage / dynamic asset allocation names do not establish tax status.** Check the AMC's tax statement and STT evidence before choosing an equity or non-equity bucket.
 - **Switch-outs count as redemptions**; equity-fund switch-outs carry STT and get 111A/112A like normal sales.
 - Two frequent mistakes to catch in third-party computations: equity-MF LTCG dumped into "other than 112A" (forfeits the 1,25,000 exemption), and equity STCG taxed at slab instead of 111A.
+
+For FY 2025-26 onward, the specified-mutual-fund definition covers funds investing
+more than 65% in debt/money-market instruments and funds investing at least 65%
+in those funds. Do not apply deemed short-term treatment to every non-equity
+fund acquired after April 2023. Use the broker/AMC's confirmed classification;
+stop if it is unclear. Sources: [s.50AA](https://www.incometaxindia.gov.in/w/section-50aa-3),
+[AMFI tax guidance](https://www.amfiindia.com/investor/knowledge-center-info?zoneName=TaxRegimeForMutualFunds).
 
 ## Broker Tax P&L exports
 
@@ -65,11 +81,16 @@ The engine computes 234C from full-year assessed tax against the standard cumula
 
 For residents, if slab-rate income is below the basic exemption (4,00,000 new regime; 2,50,000/3,00,000/5,00,000 old regime by age), the unused exemption absorbs special-rate gains. Engine order (beneficial, highest rate first): 111A @ 20% → 112A → 112 other. VDA never participates (s.115BBH). In the output, each `tax.special` row shows `income` vs `taxable`; the difference is the exemption absorbed (the 112A row's difference also includes the 1,25,000 exemption).
 
-87A rebate: in the new regime the 12,00,000 test uses slab income only and the rebate (max 60,000) offsets slab tax only - 111A/112A/112/VDA tax remains payable even for sub-12L filers. In the old regime (total income ≤ 5,00,000, max 12,500) the rebate applies against 111A STCG but not 112A LTCG (s.112A(6)) - the engine implements this, but the 111A-allowed/112A-barred split is statute-recollection (verify on the portal before relying on this).
+New rebate: the ₹12L test uses TOTAL income, including special-rate gains;
+the ₹60,000 deduction offsets slab tax only. Marginal relief is likewise
+capped at slab tax. Old rebate uses ₹5L total income / ₹12,500 and excludes
+equity LTCG; its special-gain processing warning remains. Sources:
+[Finance Act 2025 s.20](https://egazette.gov.in/WriteReadData/2025/262125.pdf),
+[2025 Act ss.156/198](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf).
 
 ## Which ITR form do capital gains force?
 
 - ITR-1/ITR-4 CAN include LTCG u/s 112A up to 1,25,000, provided there are no losses to set off or carry forward.
 - Any 111A STCG, 112A LTCG above 1,25,000, any other capital gain, any capital loss, buyback-loss reporting, or any VDA → ITR-1/4 are out.
 - Capital gains without business income → ITR-2. Any business income - including F&O (non-speculative business) or intraday (speculative business) - → ITR-3.
-- Due dates differ by form (no extension notified as of 26-Jul-2026): ITR-1/2 → 31-Jul-2026; non-audit ITR-3/4 → 31-Aug-2026. Set `due_date` in the engine input to match the selected form before computing 234A/234F.
+- Original return due dates depend on business/audit status. Set an explicitly verified `due_date` using the selected-year rate card; do not infer it from the ITR form alone.

@@ -2,6 +2,13 @@
 
 When to read this: at the FINAL step, after the engine has computed tax, the regime is chosen, and `output/filing-pack.md` exists. This file covers both filing routes, the portal's known traps, and the hard stop before submission.
 
+**Year/purpose guard:** these routes are for FY 2025-26 / AY 2026-27 under the
+1961 Act only. Advance-tax estimates use [advance-tax.md](advance-tax.md).
+For FY 2026-27 / TY 2026-27 under the 2025 Act, verify the notified form,
+utility and official field mapping before filing. These screen notes do not
+establish that the future-year portal works. If unavailable, stop at annual
+computation. See [rates-fy2026-27.md](rates-fy2026-27.md).
+
 ## Ground rules
 
 - The user logs in at https://eportal.incometax.gov.in themselves. NEVER see, ask for, type, or relay a password or OTP. Ask the user to reach the dashboard, then continue.
@@ -59,7 +66,7 @@ Fix, re-validate, repeat until 0 errors. Never suppress a defect by inventing a 
 - **Acknowledgement**: after submission, have the user download the ITR-V / acknowledgement (ACK number) from e-File -> Income Tax Returns -> View Filed Returns. Save it with the filing pack.
 - **e-verification confirmation**: confirm status shows "Successfully e-Verified". If skipped, remind again - the 30-day clock is running; an unverified return is treated as not filed.
 - **s.143(1) intimation**: CPC will process the return and email an intimation comparing the filed figures with its computation. If our numbers were verified to the rupee at preview, expect "no demand, no refund" or the computed refund. A mismatch there usually means a TDS-credit mismatch (26AS vs claimed) or a CPC adjustment - reconcile the intimation line-by-line against the engine output before the user pays any demand or accepts a reduced refund; a wrong demand can be contested (rectification u/s 154 or revised return).
-- **Missed or wrong filing - deadlines (AY 2026-27, no CBDT extension notified as of 26-Jul-2026)**:
-  - Original due dates: ITR-1/2 - 31 July 2026; non-audit ITR-3/4 - 31 August 2026 (statutory split by Finance Act 2026, keyed to s.44AB audit liability).
+- **Missed or wrong filing - deadlines (AY 2026-27)**. Re-check [the rate card](rates-fy2025-26.md) and [official updates](https://www.incometax.gov.in/iec/foportal/latest-news):
+  - Original non-audit due dates: 31 July 2026 without business/profession; 31 August 2026 with business/profession. Verify taxpayer status rather than choosing a date from the form number.
   - Belated return s.139(4): up to **31 December 2026**, with 234F fee (Rs 5,000; Rs 1,000 if total income <= 5,00,000), 234A interest, and loss of carry-forward for most losses (house-property loss and unabsorbed depreciation survive). Regime-choice restrictions for belated filers exist - (verify on the portal before relying on this).
-  - Revised return s.139(5): up to **31 March 2027**. Revisions filed after 31 December 2026 may attract a new s.234I fee - (verify on the portal before relying on this).
+  - Revised return s.139(5): up to **31 March 2027**, or assessment completion if earlier. From 1 January, s.234I fee is ₹1,000 up to ₹5L total income and ₹5,000 above it. Revised-return workflow/fees are not modelled. Source: [ITR-2 FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/itr-2/itr-2-faqs).

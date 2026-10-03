@@ -1,7 +1,7 @@
 {
   "name": "itr-wala",
-  "version": "1.2.1",
-  "description": "File your Indian income tax return (ITR) from your terminal - deterministic tax engine, both regimes, AY 2026-27.",
+  "version": "1.3.0",
+  "description": "Prepare Indian tax for FY 2025-26 and FY 2026-27: deterministic computation, both regimes, returns and advance-tax planning.",
   "author": {
     "name": "Karan Bansal",
     "url": "https://karanbansal.in"
@@ -13,8 +13,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "ITR Wala",
-    "shortDescription": "File your Indian ITR from the terminal.",
-    "longDescription": "Reads Form 16/AIS, runs a deterministic tax engine for both regimes (every rupee computed by tested code, not by the model), reconciles TDS, and walks you through the e-filing portal. You always pay, submit, and e-verify yourself.",
+    "shortDescription": "Prepare Indian returns and advance tax.",
+    "longDescription": "FY 2025-26 returns and FY 2026-27 computation and advance-tax planning. Reads documents, compares regimes with tested Python and reconciles TDS. New-year filing forms must be verified before portal guidance. You always pay, submit and e-verify yourself.",
     "developerName": "Karan Bansal",
     "category": "Productivity",
     "websiteURL": "https://itr-wala.karanbansal.in"

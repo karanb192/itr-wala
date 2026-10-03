@@ -22,6 +22,8 @@ import re
 import sys
 from datetime import date
 
+from tax_years import context_errors, fy_dates, year_rules
+
 if sys.version_info < (3, 9):
     sys.exit("itr-wala needs Python 3.9 or newer (found %d.%d)." % sys.version_info[:2])
 
@@ -30,6 +32,10 @@ AADHAAR_RE = re.compile(r"\b\d{12}\b")
 
 # Canonical input schema: nested dict of key -> type ("num", "str", "list", dict)
 SCHEMA = {
+    "financial_year": "str",    # "2025-26" | "2026-27"
+    "purpose": "str",           # "return" | "advance_tax"
+    "as_of_date": "str",        # advance-tax planning only
+    "expected_tax_credits": {"tds": "num", "tcs": "num"},
     "regime": "str",            # "new" | "old" | "both" (default both)
     "age_category": "str",      # "regular" | "senior" | "super_senior"
     "relief_89": "num",         # s.89(1) relief per Form 10E computation
@@ -155,6 +161,18 @@ def check(inp, raw=""):
                     errors.append(f"{path}{key}: must be a list")
 
     walk(inp, SCHEMA, "")
+    errors.extend(context_errors(inp))
+    try:
+        rules = year_rules(inp)
+    except ValueError:
+        rules = None
+    if "financial_year" not in inp:
+        warnings.append("financial_year omitted: using FY 2025-26 for backward "
+                        "compatibility. Confirm the income year.")
+    start, end = fy_dates(rules) if rules else (None, None)
+    planning = inp.get("purpose") == "advance_tax"
+    as_of = (date.fromisoformat(inp["as_of_date"])
+             if _valid_iso_date(inp.get("as_of_date")) else None)
 
     # -- list element checks --
     for i, p in enumerate(_lst(_dct(inp.get("income")).get("house_property"))):
@@ -175,8 +193,9 @@ def check(inp, raw=""):
     sop_count = sum(1 for p in _lst(_dct(inp.get("income")).get("house_property"))
                     if isinstance(p, dict) and p.get("type") == "self_occupied")
     if sop_count > 2:
+        section = "21(7)" if rules and rules["tax_year"] else "23(4)"
         errors.append(f"income.house_property: {sop_count} self-occupied properties - "
-                      "s.23(4) allows at most TWO; every additional house is deemed "
+                      f"s.{section} allows at most TWO; every additional house is deemed "
                       "let-out and taxed on expected rent. Mark the extras 'let_out' "
                       "with the expected rent (from the documents) as rent_received.")
     for field in ("advance_tax", "self_assessment"):
@@ -192,32 +211,41 @@ def check(inp, raw=""):
                 errors.append(f"taxes_paid.{field}[{i}].amount: must be a "
                               "non-negative number")
             if "date" not in p:
+                sections = rules["sections"] if rules else {"late_interest": "234A", "deferment_interest": "234C"}
                 errors.append(f"taxes_paid.{field}[{i}].date is required - the engine "
                               "treats an undated payment as paid-at-filing, which "
-                              "forfeits 234A/234C credit")
+                              f"forfeits s.{sections['late_interest']}/"
+                              f"s.{sections['deferment_interest']} credit")
             elif not _valid_iso_date(p["date"]):
                 errors.append(f"taxes_paid.{field}[{i}].date: must be YYYY-MM-DD "
                               f"(got {p['date']!r}) - the engine would silently "
                               "treat an unparseable date as paid-at-filing")
-            elif field == "advance_tax" and not (
-                    date(2025, 4, 1) <= date.fromisoformat(p["date"]) <= date(2026, 3, 31)):
+            elif field == "advance_tax" and rules and not (
+                    start <= date.fromisoformat(p["date"]) <= end):
                 errors.append(f"taxes_paid.advance_tax[{i}].date {p['date']}: outside "
-                              "FY 2025-26 - advance tax must be paid within the FY "
-                              "(s.211); if this was paid after 31-Mar-2026, move it "
-                              "to self_assessment")
-            elif field == "self_assessment" and date.fromisoformat(p["date"]) < date(2026, 4, 1):
+                              f"FY {rules['fy']} - advance tax must be paid within the FY "
+                              f"(s.{rules['sections']['advance_tax']}); if this was paid "
+                              f"after {end.isoformat()}, move it to self_assessment")
+            elif planning and as_of and date.fromisoformat(p["date"]) > as_of:
+                errors.append(f"taxes_paid.{field}[{i}].date: a future payment cannot "
+                              "be counted as already paid on as_of_date")
+            elif field == "self_assessment" and end and date.fromisoformat(p["date"]) <= end:
                 warnings.append(f"taxes_paid.self_assessment[{i}].date {p['date']}: "
                                 "before the FY ended - self-assessment tax is normally "
-                                "paid after 31-Mar-2026; double-check the challan")
+                                f"paid after {end.isoformat()}; double-check the challan")
+    if planning and _lst(_dct(inp.get("taxes_paid")).get("self_assessment")):
+        errors.append("taxes_paid.self_assessment: omit self-assessment payments "
+                      "from advance-tax planning")
 
     # -- date checks (a malformed date would silently fall back to defaults) --
     for k in ("due_date", "filing_date"):
         if k in inp and not _valid_iso_date(inp[k]):
             errors.append(f"{k}: must be YYYY-MM-DD (got {inp[k]!r})")
     fd = inp.get("filing_date")
-    if fd is not None and _valid_iso_date(fd) and date.fromisoformat(fd) < date(2026, 4, 1):
-        errors.append(f"filing_date {fd}: an AY 2026-27 return cannot be filed "
-                      "before 2026-04-01")
+    if fd is not None and _valid_iso_date(fd) and end and date.fromisoformat(fd) <= end:
+        following = date(end.year, 4, 1).isoformat()
+        errors.append(f"filing_date {fd}: the FY {rules['fy']} return cannot be filed "
+                      f"before {following}; use purpose 'advance_tax' for an estimate")
 
     # -- enum checks --
     if inp.get("regime") not in (None, "new", "old", "both"):
@@ -236,6 +264,17 @@ def check(inp, raw=""):
     sal = _dct(inc.get("salary"))
     st = _dct(inp.get("source_totals"))
     tp = _dct(inp.get("taxes_paid"))
+    if planning:
+        expected = _dct(inp.get("expected_tax_credits"))
+        if "expected_tax_credits" not in inp:
+            warnings.append("expected_tax_credits absent: the plan uses recorded "
+                            "TDS/TCS only. Confirm expected withholding for the full year.")
+        for key in ("tds", "tcs"):
+            recorded = tp.get(key, 0)
+            annual = expected.get(key, 0)
+            if "expected_tax_credits" in inp and _is_num(recorded) and _is_num(annual) and annual < recorded:
+                errors.append(f"expected_tax_credits.{key}: full-year expected credit "
+                              "cannot be less than taxes_paid." + key)
 
     # -- cross-checks against document totals --
     parts = [sal.get(k) for k in ("form16_17_1", "form16_17_2", "form16_17_3")]

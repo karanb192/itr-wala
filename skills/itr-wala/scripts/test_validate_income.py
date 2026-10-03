@@ -28,6 +28,7 @@ EXAMPLE = os.path.join(SCRIPT_DIR, "..", "assets", "example-income.json")
 
 # A fully cross-checked input that yields 0 errors AND 0 warnings.
 CLEAN = {
+    "financial_year": "2025-26",
     "regime": "both",
     "age_category": "regular",
     "residential_status": "resident",
@@ -782,6 +783,127 @@ class TestV12Fields(unittest.TestCase):
             {"type": "self_occupied"}, {"type": "self_occupied"},
             {"type": "self_occupied"}]}})
         self.assertTrue(has(errors, "s.23(4)"), errors)
+
+
+class TestIncomeYearsAndPlanning(TempFileMixin, unittest.TestCase):
+    def plan(self, **fields):
+        obj = {"financial_year": "2026-27", "purpose": "advance_tax",
+               "as_of_date": "2026-12-10", "expected_tax_credits": {"tds": 10_000},
+               "income": {"other_sources": {"other": 2_000_000}}}
+        obj.update(fields)
+        return obj
+
+    def test_new_year_return_dates_accepted(self):
+        obj = clean()
+        obj.update(financial_year="2026-27", due_date="2027-07-31", filing_date="2027-07-28")
+        self.assertEqual(vcheck(obj), ([], []))
+        obj["due_date"] = "2026-07-31"
+        self.assertTrue(has(vcheck(obj)[0], "due_date", "after the selected income year"))
+        obj.update(financial_year="2025-26", due_date="2027-07-31")
+        self.assertTrue(has(vcheck(obj)[0], "due_date", "does not belong"))
+
+    def test_new_year_plan_accepted(self):
+        self.assertEqual(vcheck(self.plan())[0], [])
+
+    def test_old_year_plan_accepted(self):
+        obj = self.plan(financial_year="2025-26", as_of_date="2025-12-10")
+        self.assertEqual(vcheck(obj)[0], [])
+
+    def test_unsupported_and_wrong_shaped_years_never_crash(self):
+        for fy in ("2024-25", "2027-28", "2026-2027", "", None, 2026, [], {}, True):
+            with self.subTest(fy=fy):
+                errors, _ = vcheck({"financial_year": fy})
+                self.assertTrue(has(errors, "financial_year"), errors)
+
+    def test_wrong_shaped_purpose_never_crashes(self):
+        for purpose in (None, 1, [], {}, True, "estimate"):
+            with self.subTest(purpose=purpose):
+                self.assertTrue(has(vcheck({"purpose": purpose})[0], "purpose"))
+
+    def test_missing_year_is_warned_and_cannot_be_used_for_planning(self):
+        errors, warnings = vcheck({})
+        self.assertEqual(errors, [])
+        self.assertTrue(has(warnings, "financial_year omitted", "2025-26"))
+        obj = self.plan(as_of_date="2025-12-10")
+        del obj["financial_year"]
+        self.assertTrue(has(vcheck(obj)[0], "financial_year is required"))
+
+    def test_as_of_date_required_strict_and_in_selected_year(self):
+        for day in (None, [], "20261210", "2026-02-29", "2026-03-31", "2027-04-01"):
+            with self.subTest(day=day):
+                self.assertTrue(has(vcheck(self.plan(as_of_date=day))[0], "as_of_date"))
+        for day in ("2026-04-01", "2027-03-31"):
+            self.assertEqual(vcheck(self.plan(as_of_date=day))[0], [])
+
+    def test_planning_rejects_return_fields(self):
+        for field in ("due_date", "filing_date"):
+            self.assertTrue(has(vcheck(self.plan(**{field: "2027-07-31"}))[0], field, "omit"))
+
+    def test_returns_reject_planning_fields(self):
+        for field, val in (("as_of_date", "2026-12-10"), ("expected_tax_credits", {"tds": 5_000})):
+            self.assertTrue(has(vcheck({field: val})[0], field, "advance_tax"))
+
+    def test_advance_payment_windows_are_selected_by_year(self):
+        for fy, day in (("2025-26", "2025-12-15"), ("2026-27", "2026-12-15")):
+            obj = {"financial_year": fy, "taxes_paid": {"advance_tax": [{"date": day, "amount": 5_000}]}}
+            self.assertEqual(vcheck(obj)[0], [])
+            obj["financial_year"] = "2025-26" if fy == "2026-27" else "2026-27"
+            self.assertTrue(has(vcheck(obj)[0], "outside", "FY"))
+
+    def test_planning_refuses_future_payments(self):
+        obj = self.plan(taxes_paid={"advance_tax": [{"date": "2026-12-15", "amount": 5_000}]})
+        self.assertTrue(has(vcheck(obj)[0], "future payment"))
+        obj["taxes_paid"]["advance_tax"][0]["date"] = "2026-12-10"
+        self.assertEqual(vcheck(obj)[0], [])
+
+    def test_planning_refuses_self_assessment(self):
+        obj = self.plan(taxes_paid={"self_assessment": [{"date": "2026-12-01", "amount": 5_000}]})
+        self.assertTrue(has(vcheck(obj)[0], "self_assessment", "omit"))
+
+    def test_expected_credits_are_checked_independently_from_recorded_totals(self):
+        obj = self.plan(expected_tax_credits={"tds": 20_000}, taxes_paid={"tds": 5_000},
+                        source_totals={"form26as_total_tds": 5_000})
+        self.assertEqual(vcheck(obj)[0], [])
+        obj["expected_tax_credits"]["tds"] = 4_000
+        self.assertTrue(has(vcheck(obj)[0], "expected_tax_credits.tds", "cannot be less"))
+
+    def test_expected_credits_reject_invalid_values_and_unknown_keys(self):
+        for val in (-1, True, "5000", None, float("nan"), float("inf")):
+            self.assertTrue(has(vcheck(self.plan(expected_tax_credits={"tds": val}))[0],
+                                "expected_tax_credits.tds"))
+        self.assertTrue(has(vcheck(self.plan(expected_tax_credits={"tds_total": 5_000}))[0], "Unknown key"))
+        for val in ([], None, 5_000):
+            self.assertTrue(has(vcheck(self.plan(expected_tax_credits=val))[0], "expected_tax_credits"))
+
+    def test_no_expected_credit_estimate_warns(self):
+        obj = self.plan()
+        del obj["expected_tax_credits"]
+        self.assertTrue(has(vcheck(obj)[1], "expected_tax_credits absent"))
+
+    def test_new_year_cannot_file_before_year_end(self):
+        errors, _ = vcheck({"financial_year": "2026-27", "filing_date": "2027-03-31"})
+        self.assertTrue(has(errors, "before 2027-04-01"))
+        self.assertEqual(vcheck({"financial_year": "2026-27", "filing_date": "2027-04-01"})[0], [])
+
+    def test_cli_rejects_unsupported_year_in_both_tools(self):
+        path = self.write("unknown.json", {"financial_year": "2027-28"})
+        for script in (VALIDATOR, ENGINE):
+            r = run_cli(script, path, "--json")
+            self.assertNotEqual(r.returncode, 0)
+            self.assertNotIn("Traceback", r.stdout + r.stderr)
+
+    def test_cli_planning_output_is_not_a_return(self):
+        path = self.write("plan.json", self.plan())
+        self.assertEqual(run_cli(VALIDATOR, path).returncode, 0)
+        r = run_cli(ENGINE, path, "--json")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        result = json.loads(r.stdout)
+        self.assertEqual(result["purpose"], "advance_tax")
+        self.assertNotIn("interest_and_fees", result["new"])
+        rendered = run_cli(ENGINE, path).stdout
+        self.assertIn("TY 2026-27", rendered)
+        self.assertIn("2026-12-15", rendered)
+        self.assertNotIn("NET PAYABLE", rendered)
 
 
 if __name__ == "__main__":

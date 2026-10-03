@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Property-based fuzzer for tax_engine.py - FY 2025-26 (AY 2026-27).
+"""Property-based fuzzer for both supported years and computation purposes.
 
 Generates random schema-valid income.json inputs biased toward statutory
 boundaries (slab edges, 87A thresholds, the 1,25,000 s.112A exemption,
@@ -51,6 +51,7 @@ if sys.version_info < (3, 9):
 
 import tax_engine
 from validate_income import check as validate_check
+from tax_years import YEARS
 
 # ---------------------------------------------------------------------------
 # Boundary-biased generators
@@ -68,12 +69,6 @@ MAGIC_AMOUNTS = [
 DELTAS = [-1_000, -100, -10, -5, -1, 0, 1, 5, 10, 100, 1_000]
 AMOUNT_CAP = 1_000_000_000            # 100 crore; the validator warns beyond
 DEDUCTION_MAGIC = [0, 1, 10_000, 25_000, 50_000, 100_000, 150_000, 200_000, 500_000]
-
-# Advance-tax challans cluster around the 234C installment dates.
-INSTALLMENT_DATES = [date(2025, 6, 15), date(2025, 9, 15),
-                     date(2025, 12, 15), date(2026, 3, 15)]
-SELF_ASSESSMENT_DATES = [date(2026, 7, 25), date(2026, 7, 31), date(2026, 8, 31)]
-DUE_DATES = ["2026-07-31", "2026-08-31", "2026-10-31"]
 
 BUMP_FIELDS = ("salary.gross", "other_sources.other", "stcg_111a", "ltcg_112a", "vda")
 
@@ -138,10 +133,14 @@ def _sum_amounts(node):
     return 0
 
 
-def gen_case(rng):
+def gen_case(rng, financial_year="2025-26", purpose="return"):
     """One random schema-valid input. Sections go missing or empty at random
     so defaults get fuzzed too."""
-    inp = {}
+    y = YEARS[financial_year]["start_year"]
+    instalment_dates = [date(y, 6, 15), date(y, 9, 15), date(y, 12, 15), date(y + 1, 3, 15)]
+    assessment_dates = [date(y + 1, 7, 25), date(y + 1, 7, 31), date(y + 1, 8, 31)]
+    due_dates = [date(y + 1, m, 31).isoformat() for m in (7, 8, 10)]
+    inp = {"financial_year": financial_year, "purpose": purpose}
     if rng.random() < 0.9:
         inp["regime"] = "both"      # omitted -> engine defaults to both anyway
     if rng.random() < 0.9:
@@ -219,23 +218,33 @@ def gen_case(rng):
     if rng.random() < 0.15:
         tp["tcs"] = rand_deduction(rng)
     if rng.random() < 0.45:
-        tp["advance_tax"] = rand_payments(rng, proxy * 0.3, INSTALLMENT_DATES,
-                                          date(2025, 4, 1), 364)
+        tp["advance_tax"] = rand_payments(rng, proxy * 0.3, instalment_dates,
+                                          date(y, 4, 1), 364)
     if rng.random() < 0.3:
-        tp["self_assessment"] = rand_payments(rng, proxy * 0.3, SELF_ASSESSMENT_DATES,
-                                              date(2026, 4, 1), 270)
+        tp["self_assessment"] = rand_payments(rng, proxy * 0.3, assessment_dates,
+                                              date(y + 1, 4, 1), 270)
     if tp:
         inp["taxes_paid"] = tp
 
     if rng.random() < 0.8:
-        inp["due_date"] = rng.choice(DUE_DATES)
-    if rng.random() < 0.95:
-        if rng.random() < 0.5:
-            f = (date.fromisoformat(rng.choice(DUE_DATES))
-                 + timedelta(days=rng.randint(-5, 5)))
-        else:
-            f = date(2026, 6, 1) + timedelta(days=rng.randint(0, 300))
-        inp["filing_date"] = f.isoformat()
+        inp["due_date"] = rng.choice(due_dates)
+    if rng.random() < 0.5:
+        f = (date.fromisoformat(rng.choice(due_dates))
+             + timedelta(days=rng.randint(-5, 5)))
+    else:
+        f = date(y + 1, 6, 1) + timedelta(days=rng.randint(0, 300))
+    inp["filing_date"] = f.isoformat()
+    if purpose == "advance_tax":
+        del inp["filing_date"]
+        inp.pop("due_date", None)
+        as_of = date(y, 4, 1) + timedelta(days=rng.randint(0, 364))
+        inp["as_of_date"] = as_of.isoformat()
+        tp.pop("self_assessment", None)
+        tp["advance_tax"] = [p for p in tp.get("advance_tax", [])
+                              if p["date"] <= inp["as_of_date"]]
+        inp["taxes_paid"] = tp
+        inp["expected_tax_credits"] = {k: tp.get(k, 0) + rand_deduction(rng)
+                                       for k in ("tds", "tcs")}
     if rng.random() < 0.1:
         inp["residential_status"] = "resident"
     return inp
@@ -284,24 +293,37 @@ def run_case(inp, bump_field, bump_delta):
         if rk not in r1:
             continue
         c = r1[rk]
-        t, fees = c["tax"], c["interest_and_fees"]
+        t, fees = c["tax"], c.get("interest_and_fees")
         pre = f"[{rk}] "
         if c["total_income"] % 10 or c["total_income"] < 0:    # invariant 3
             fail("3-rounding", pre + f"total_income={c['total_income']}")
         if t["total_tax_liability"] % 10 or t["total_tax_liability"] < 0:
             fail("3-rounding", pre + f"total_tax_liability={t['total_tax_liability']}")
-        if fees["final_payable_or_refund"] % 10:
+        if fees and fees["final_payable_or_refund"] % 10:
             fail("3-rounding",
                  pre + f"final_payable_or_refund={fees['final_payable_or_refund']}")
 
         cap = 60_000 if rk == "new" else 12_500                # invariant 4
         if t["rebate_87a"] > cap:
             fail("4-bounds", pre + f"rebate_87a={t['rebate_87a']} > {cap}")
-        for k in ("234A", "234B", "234C", "234F"):
-            if fees[k] < 0:
-                fail("4-bounds", pre + f"{k}={fees[k]} is negative")
-        if fees["234F"] not in (0, 1_000, 5_000):
-            fail("4-bounds", pre + f"234F={fees['234F']} not in {{0, 1000, 5000}}")
+        if fees:
+            for k in ("234A", "234B", "234C", "234F"):
+                if fees[k] < 0:
+                    fail("4-bounds", pre + f"{k}={fees[k]} is negative")
+            if fees["234F"] not in (0, 1_000, 5_000):
+                fail("4-bounds", pre + f"234F={fees['234F']} not in {{0, 1000, 5000}}")
+        else:
+            plan = c["advance_tax"]
+            payment = plan["next_payment"]
+            if payment:
+                target = next((s["cumulative_required"] for s in plan["schedule"]
+                               if s["due_date"] == payment["due_date"]),
+                              plan["net_advance_tax_liability"])
+                expected = tax_engine._r10(max(0, target - plan["advance_tax_paid"]))
+                if payment["amount"] != expected or payment["amount"] < 0:
+                    fail("9-advance-plan", pre + "next payment does not reconcile")
+            if plan["senior_exempt"] and (payment or plan["schedule"]):
+                fail("9-advance-plan", pre + "exempt senior has an instalment")
         if t["surcharge_marginal_relief"] > t["surcharge"]:
             fail("4-bounds", pre + f"surcharge_marginal_relief="
                  f"{t['surcharge_marginal_relief']} > surcharge={t['surcharge']}")
@@ -465,6 +487,8 @@ def main(argv=None):
                     help="RNG seed; same seed -> same cases (default 42)")
     ap.add_argument("--verbose", action="store_true",
                     help="progress every 500 cases + each violation as found")
+    ap.add_argument("--financial-year", choices=tuple(YEARS), default="2025-26")
+    ap.add_argument("--purpose", choices=("return", "advance_tax"), default="return")
     args = ap.parse_args(argv)
 
     rng = random.Random(args.seed)
@@ -474,7 +498,7 @@ def main(argv=None):
     verbose_shown = 0
 
     for case_no in range(1, args.cases + 1):
-        inp = gen_case(rng)
+        inp = gen_case(rng, args.financial_year, args.purpose)
         bump_field = rng.choice(BUMP_FIELDS)
         bump_delta = rng.randint(1_000, 100_000)
 

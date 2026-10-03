@@ -37,12 +37,12 @@ One number per income head, each tied to a source document. Never accept a figur
 
 ### 3. Form 16 (one per employer)
 - WHAT: employer's TDS certificate. **Part A**: TDS deposited quarter-by-quarter. **Part B**: salary breakup - s.17(1) salary, 17(2) perquisites, 17(3) profits in lieu - exempt allowances, and the regime the employer used.
-- WHERE: from each employer (HR/payroll portal or email). Users who switched jobs need one from EVERY employer of FY 2025-26.
+- WHERE: from each employer (HR/payroll portal or email), for the selected income year. A current-year advance-tax estimate uses payslips/payroll forecasts until the final certificate exists; see [advance-tax.md](advance-tax.md). Verify year-specific certificate forms under the 2025 Act rather than assuming the old form number.
 - WHY: feeds `salary.form16_17_1/2/3`, `salary.gross`, `exempt_allowances`, `professional_tax`, `basic_plus_da` (enables the 80CCD(2) cap check), and `source_totals.form16_gross_salary/form16_total_tds`. The validator hard-errors if 17(1)+17(2)+17(3) ≠ gross.
 
 ### 4. Broker tax P&L (capital gains)
 - WHAT: realised STCG/LTCG per scrip with buy/sell dates, cost, sale value, STT flag; usually splits equity vs debt vs intraday vs F&O.
-- WHERE: **Zerodha: Console → Reports → Tax P&L** (select FY 2025-26). Groww and Upstox have equivalent tax P&L reports under their reports section. Collect one per broker the user traded on.
+- WHERE: **Zerodha: Console → Reports → Tax P&L** (select the confirmed FY, 2025-26 or 2026-27). Groww and Upstox have equivalent reports. Collect one per broker; for an estimate, record the year-to-date period and do not pretend it is the final annual statement.
 - WHY: feeds `capital_gains.stcg_111a / ltcg_112a / ltcg_other / stcg_slab`. The 1,25,000 s.112A exemption aggregates across ALL brokers, so every broker's report is needed. Cross-classify fund gains against AIS SFT codes (above).
 
 ### 5. Mutual fund statements (CAMS / KFintech)

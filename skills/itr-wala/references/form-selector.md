@@ -2,6 +2,11 @@
 
 When to read this: before telling the user which ITR form to file, and before setting the `due_date` input for `tax_engine.py`. Ask the questions below in order; do not assume.
 
+**Year guard:** this form selector covers FY 2025-26 / AY 2026-27 only.
+For FY 2026-27 / TY 2026-27, use the [selected-year rate card](rates-fy2026-27.md)
+and verify the notified return forms and utility. Do not copy the form numbers,
+eligibility or screen flow below. Advance-tax estimates need no ITR form.
+
 ## Decision procedure (ask in this order, stop at the first hit)
 
 1. **Non-resident or RNOR?** → Out of this skill's scope (engine is resident-only). At minimum ITR-2; refer out.
@@ -47,15 +52,22 @@ Everything ITR-2 covers, plus business/profession. Specifically forces ITR-3:
 
 ## Due dates (AY 2026-27) and the engine's `due_date` input
 
-Finance Act 2026 permanently split the non-audit deadline (s.139(1)); the determinant is audit liability u/s 44AB, not income type. No CBDT extension notified as of 26-Jul-2026 - do not assume one.
+Finance Act 2026 split the non-audit deadline (s.139(1)); business/professional
+income and audit status determine it, not the form number alone. Check
+[the rate card](rates-fy2025-26.md) and official notifications for extensions.
 
 | Form | Due date | Pass to engine as `"due_date"` |
 |---|---|---|
 | ITR-1, ITR-2 | 31 July 2026 | `"2026-07-31"` |
 | ITR-3, ITR-4 (no 44AB audit) | 31 August 2026 | `"2026-08-31"` |
-| Audit cases u/s 44AB | 31 October 2026 | `"2026-10-31"` |
+| Audit cases u/s 44AB, outside scope | 21 November 2026 (extended) | do not compute audit cases |
 
-The engine defaults to 2026-07-31 when `due_date` is omitted - **always set it explicitly once the form is chosen**, or an ITR-3/4 filer will be charged phantom s.234A/234F amounts for August filing. Belated return (s.139(4)): 31 December 2026. Revised return (s.139(5)): 31 March 2027.
+The engine defaults to 2026-07-31 without business income and 2026-08-31 with
+presumptive income. **Always set a verified `due_date` explicitly**. A no-business
+ITR-3 filer is not automatically entitled to the August date. Belated return:
+31 December 2026; revised: 31 March 2027, subject to earlier assessment completion.
+Revised-return workflow/fees remain unsupported. Source:
+[Finance Act 2026 s.5](https://egazette.gov.in/WriteReadData/2026/271439.pdf).
 
 ## Form 10-IEA (old-regime opt-in for business filers)
 

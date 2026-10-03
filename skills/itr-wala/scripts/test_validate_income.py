@@ -18,8 +18,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date
 
-from validate_income import check
+from validate_income import check as validator_check
+
+
+def check(inp, raw="", today=date(2026, 7, 20)):
+    return validator_check(inp, raw, today=today)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 VALIDATOR = os.path.join(SCRIPT_DIR, "validate_income.py")
@@ -845,7 +850,8 @@ class TestIncomeYearsAndPlanning(TempFileMixin, unittest.TestCase):
 
     def test_advance_payment_windows_are_selected_by_year(self):
         for fy, day in (("2025-26", "2025-12-15"), ("2026-27", "2026-12-15")):
-            obj = {"financial_year": fy, "taxes_paid": {"advance_tax": [{"date": day, "amount": 5_000}]}}
+            obj = {"financial_year": fy, "filing_date": str(int(fy[:4]) + 1) + "-07-20",
+                   "taxes_paid": {"advance_tax": [{"date": day, "amount": 5_000}]}}
             self.assertEqual(vcheck(obj)[0], [])
             obj["financial_year"] = "2025-26" if fy == "2026-27" else "2026-27"
             self.assertTrue(has(vcheck(obj)[0], "outside", "FY"))
@@ -882,8 +888,36 @@ class TestIncomeYearsAndPlanning(TempFileMixin, unittest.TestCase):
 
     def test_new_year_cannot_file_before_year_end(self):
         errors, _ = vcheck({"financial_year": "2026-27", "filing_date": "2027-03-31"})
-        self.assertTrue(has(errors, "before 2027-04-01"))
+        self.assertTrue(has(errors, "after the selected income year"))
         self.assertEqual(vcheck({"financial_year": "2026-27", "filing_date": "2027-04-01"})[0], [])
+
+    def test_annual_salary_forecast_is_not_forced_to_source_period(self):
+        obj = self.plan(income={"salary": {"gross": 2_400_000, "form16_17_1": 1_200_000}},
+                        source_totals={"form16_gross_salary": 1_200_000})
+        errors, warnings = vcheck(obj)
+        self.assertEqual(errors, [])
+        self.assertTrue(has(warnings, "full-year forecast", "period"))
+
+    def test_professional_tax_sanity_is_a_warning(self):
+        errors, warnings = vcheck(self.plan(income={"salary": {"gross": 2_000_000, "professional_tax": 6_000}}))
+        self.assertEqual(errors, [])
+        self.assertTrue(has(warnings, "Professional tax exceeds 2,500"))
+
+    def test_planning_undated_payment_message(self):
+        errors, _ = vcheck(self.plan(taxes_paid={"advance_tax": [{"amount": 5_000}]}))
+        self.assertTrue(has(errors, "on or before as_of_date"))
+        self.assertFalse(has(errors, "paid-at-filing"))
+
+    def test_bad_filing_date_is_reported_once(self):
+        errors, _ = vcheck({"filing_date": "2026-02-30"})
+        self.assertEqual(len([e for e in errors if "filing_date" in e]), 1)
+
+    def test_cli_invalid_planning_date_has_no_traceback(self):
+        path = self.write("bad-plan.json", self.plan(as_of_date="2028-01-01"))
+        result = subprocess.run([sys.executable, ENGINE, path], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("ERROR", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_cli_rejects_unsupported_year_in_both_tools(self):
         path = self.write("unknown.json", {"financial_year": "2027-28"})

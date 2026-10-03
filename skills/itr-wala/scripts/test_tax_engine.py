@@ -3,8 +3,13 @@ FY 2025-26 (AY 2026-27) rules. Run: python3 -m unittest test_tax_engine -v
 """
 
 import unittest
+from datetime import date
 
-from tax_engine import compute
+from tax_engine import compute as engine_compute
+
+
+def compute(inp, today=date(2026, 7, 20)):
+    return engine_compute(inp, today=today)
 
 
 def new_liab(r):
@@ -321,7 +326,7 @@ class TestInterestAndFees(unittest.TestCase):
         # Presumptive 20L only (tax 2,08,000), 100% advance paid 10-Mar:
         # fully compliant under the single 15-Mar installment rule -> no 234B/C
         r = compute({"regime": "new",
-                     "income": {"business_presumptive_income": 2_000_000},
+                     "income": {"business_presumptive_income": 2_000_000, "presumptive_section": "44AD"},
                      "taxes_paid": {"advance_tax": [
                          {"date": "2026-03-10", "amount": 208_000}]},
                      "due_date": "2026-08-31", "filing_date": "2026-08-30"})
@@ -580,21 +585,23 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
     def test_paid_on_deadline_counts(self):
         p = self.estimate(as_of="2026-12-15", taxes_paid={"advance_tax": [
             {"date": "2026-12-15", "amount": 150_000}]})["new"]["advance_tax"]
-        self.assertEqual(p["schedule"][2]["shortfall"], 0)
-        self.assertEqual(p["next_payment"]["amount"], 0)
+        self.assertEqual(p["schedule"][2]["shortfall_at_deadline"], 0)
+        self.assertEqual(p["next_payment"]["amount"], 50_000)
+        self.assertEqual(p["next_payment"]["due_date"], "2027-03-15")
 
     def test_late_paid_amount_counts_for_next_payment_but_not_past_deadline(self):
         p = self.estimate(taxes_paid={"advance_tax": [
             {"date": "2026-10-01", "amount": 100_000}]})["new"]["advance_tax"]
         self.assertEqual(p["schedule"][1]["paid_by_deadline"], 0)
-        self.assertEqual(p["schedule"][1]["shortfall"], 90_000)
+        self.assertEqual(p["schedule"][1]["shortfall_at_deadline"], 90_000)
+        self.assertEqual(p["schedule"][1]["outstanding_now"], 0)
         self.assertEqual(p["next_payment"]["amount"], 50_000)
 
     def test_presumptive_with_interest_uses_single_march_instalment(self):
         for fy, as_of, march in (("2025-26", "2025-12-10", "2026-03-15"),
                                 ("2026-27", "2026-12-10", "2027-03-15")):
             r = self.estimate(fy, as_of, expected_tax_credits={}, income={
-                "business_presumptive_income": 2_000_000,
+                "business_presumptive_income": 2_000_000, "presumptive_section": "44ADA",
                 "other_sources": {"fd_interest": 100_000}})
             p = r["new"]["advance_tax"]
             # 21L: tax 225,000 * 1.04 = 234,000, entirely due in March.
@@ -612,7 +619,7 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
 
     def test_senior_with_presumptive_business_not_exempt(self):
         p = self.estimate(age_category="senior", income={
-            "business_presumptive_income": 2_000_000})["new"]["advance_tax"]
+            "business_presumptive_income": 2_000_000, "presumptive_section": "44AD"})["new"]["advance_tax"]
         self.assertFalse(p["senior_exempt"])
         self.assertEqual(len(p["schedule"]), 1)
 
@@ -626,7 +633,7 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
         self.assertFalse(p["advance_tax_required"])
         p = self.estimate(taxes_paid={"advance_tax": [
             {"date": "2026-10-01", "amount": 300_000}]})["new"]["advance_tax"]
-        self.assertEqual(p["next_payment"]["amount"], 0)
+        self.assertIsNone(p["next_payment"])
         self.assertEqual(p["annual_remaining"], 0)
 
     def test_new_act_labels_and_legacy_output_keys(self):
@@ -637,16 +644,16 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
         self.assertEqual(r["tax_year"], "2026-27")
         self.assertEqual(r["sections"]["round_tax"], "516")
         sections = [s["section"] for s in r["new"]["tax"]["special"]]
-        self.assertEqual(sections, ["196 STCG (equity)", "198 LTCG (equity)",
-                                   "194(1), Table 4 VDA/crypto", "194(1), Tables 1/5 winnings"])
+        self.assertEqual(sections, ["s.196 STCG (equity)", "s.198 LTCG (equity)",
+                                   "s.194(1), Table 4 VDA/crypto", "s.194(1), Tables 1/5 winnings"])
         self.assertIn("rebate_87a", r["new"]["tax"])
 
     def test_new_act_warning_translation_preserves_rupee_amounts(self):
         r = self.estimate(relief_89=89, income={"capital_gains": {"ltcg_other": 500_000}})
         warnings = r["new"]["warnings"]
-        self.assertTrue(any("u/s 157 of 89 applied" in w for w in warnings), warnings)
+        self.assertTrue(any("s.157 of 89 applied" in w for w in warnings), warnings)
         self.assertTrue(any("s.197" in w for w in warnings), warnings)
-        self.assertEqual(r["new"]["tax"]["special"][0]["section"], "197 LTCG (other)")
+        self.assertEqual(r["new"]["tax"]["special"][0]["section"], "s.197 LTCG (other)")
 
     def test_special_income_marginal_relief_is_limited_to_slab_tax(self):
         # TI 12.5L: 6L slab tax 10k + 6.5L STCG tax 130k. Excess 50k;
@@ -686,7 +693,7 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
 
     def test_mixed_presumptive_return_interest_uses_march_only(self):
         r = compute({"financial_year": "2026-27", "regime": "new",
-                     "income": {"business_presumptive_income": 2_000_000,
+                     "income": {"business_presumptive_income": 2_000_000, "presumptive_section": "44ADA",
                                 "other_sources": {"fd_interest": 100_000}},
                      "filing_date": "2027-08-20"})
         i = r["new"]["interest_and_fees"]
@@ -713,6 +720,109 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
                                ("self_assessment", {"date": "2026-12-01", "amount": 50_000})):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 self.estimate(taxes_paid={field: [payment]})
+
+
+class TestReviewRegressions(unittest.TestCase):
+    def test_partial_special_rate_relief_and_old_rebate(self):
+        for fy, filing in (("2025-26", "2026-07-20"), ("2026-27", "2027-07-20")):
+            r = compute({"financial_year": fy, "filing_date": filing,
+                         "income": {"other_sources": {"other": 1_100_000},
+                                    "capital_gains": {"stcg_111a": 100_010}}})
+            self.assertEqual(new_liab(r), 20_800)
+            self.assertEqual(r["new"]["tax"]["marginal_relief_87a"], 50_000)
+            r = compute({"financial_year": fy, "filing_date": filing,
+                         "income": {"other_sources": {"other": 300_000},
+                                    "capital_gains": {"stcg_111a": 150_000}}})
+            self.assertEqual(old_liab(r), 20_800)
+            self.assertEqual(r["old"]["tax"]["rebate_87a"], 12_500)
+
+    def test_super_senior_new_year_old_regime(self):
+        r = compute({"financial_year": "2026-27", "filing_date": "2027-07-20",
+                     "age_category": "super_senior", "income": {"other_sources": {"fd_interest": 1_000_000}}})
+        self.assertEqual(old_liab(r), 93_600)
+        self.assertTrue(any("s.403(3)" in s for s in r["old"]["interest_and_fees"]["assumptions"]))
+
+    def test_business_august_due_date_both_years(self):
+        for fy, year in (("2025-26", 2026), ("2026-27", 2027)):
+            inp = {"financial_year": fy, "income": {"business_presumptive_income": 2_000_000,
+                                                     "presumptive_section": "44AD"}}
+            for day, late in (("08-15", False), ("09-05", True)):
+                r = compute(dict(inp, filing_date=f"{year}-{day}"))["new"]["interest_and_fees"]
+                self.assertEqual(r["234F"], 5_000 if late else 0)
+                self.assertEqual(r["234A"], 2_080 if late else 0)
+
+    def test_missing_filing_date_agrees_with_validator(self):
+        from validate_income import check
+        inp = {"financial_year": "2026-27"}
+        for today, allowed in ((date(2026, 10, 4), False), (date(2027, 3, 31), False),
+                               (date(2027, 4, 1), True), (date(2027, 12, 31), True),
+                               (date(2028, 1, 1), False)):
+            errors, _ = check(inp, today=today)
+            self.assertEqual(not errors, allowed)
+            if allowed:
+                compute(inp, today=today)
+            else:
+                with self.assertRaisesRegex(ValueError, "filing_date"):
+                    compute(inp, today=today)
+
+    def test_belated_cutoff_both_years(self):
+        for fy, year in (("2025-26", 2026), ("2026-27", 2027)):
+            compute({"financial_year": fy, "filing_date": f"{year}-12-31"})
+            with self.assertRaisesRegex(ValueError, "window has closed"):
+                compute({"financial_year": fy, "filing_date": f"{year + 1}-01-01"})
+
+    def test_explicit_presumptive_gate(self):
+        inp = {"financial_year": "2026-27", "purpose": "advance_tax", "as_of_date": "2026-12-10",
+               "income": {"business_presumptive_income": 2_000_000}}
+        self.assertEqual(len(compute(inp)["new"]["advance_tax"]["schedule"]), 4)
+        for section in ("44AD", "44ADA"):
+            inp["income"]["presumptive_section"] = section
+            self.assertEqual(len(compute(inp)["new"]["advance_tax"]["schedule"]), 1)
+        inp["income"]["presumptive_section"] = "44AE"
+        with self.assertRaisesRegex(ValueError, "44AE is unsupported"):
+            compute(inp)
+
+    def test_new_year_warning_labels_are_explicit(self):
+        import re
+        inp = {"financial_year": "2026-27", "filing_date": "2027-09-01",
+               "income": {"salary": {"gross": 2_000_000, "professional_tax": 6_000, "basic_plus_da": 100_000},
+                          "house_property": [{"type": "self_occupied", "interest_paid": 300_000}],
+                          "capital_gains": {"ltcg_other": 100_000}, "other_sources": {"family_pension": 90_000}},
+               "deductions": {"80c": 200_000, "80ccd_2": 90_000, "80tta_ttb": 10_000, "80g": 5_000},
+               "relief_89": 89}
+        r = compute(inp)
+        warnings = " ".join(w for rk in ("old", "new") for w in r[rk]["warnings"])
+        self.assertIn("s.197(3)", warnings)
+        self.assertIn("s.22(2)", warnings)
+        self.assertIn("s.157 of 89", warnings)
+        self.assertIn("deposit interest, donations", warnings)
+        self.assertIsNone(re.search(r"87A|80TTA|80G|153_TTB|115BAC|s\.112|s\.24|s\.57", warnings))
+
+    def test_gain_warning_and_legacy_fixture(self):
+        import json
+        from pathlib import Path
+        for fy, filing, section in (("2025-26", "2026-07-20", "s.87A"), ("2026-27", "2027-07-20", "s.156")):
+            r = compute({"financial_year": fy, "filing_date": filing, "income": {
+                "salary": {"gross": 1_275_000}, "capital_gains": {"ltcg_112a": 100_000}}})
+            self.assertEqual(new_liab(r), 62_400)
+            self.assertTrue(any(section in w and "special-rate income" in w for w in r["new"]["warnings"]))
+        inp = json.loads((Path(__file__).parent.parent / "assets/example-income.json").read_text())
+        inp.pop("financial_year")
+        self.assertEqual(compute(inp)["new"]["interest_and_fees"]["final_payable_or_refund"], 720)
+
+    def test_fuzz_oracle_detects_coherent_wrong_plan(self):
+        import copy
+        from fuzz_engine import advance_plan_errors
+        inp = {"financial_year": "2026-27", "purpose": "advance_tax", "as_of_date": "2026-12-10",
+               "income": {"other_sources": {"other": 2_000_000}}, "expected_tax_credits": {"tds": 8_000},
+               "taxes_paid": {"advance_tax": [{"date": "2026-10-01", "amount": 100_000}]}}
+        plan = compute(inp)["new"]["advance_tax"]
+        self.assertEqual(advance_plan_errors(inp, 208_000, plan), [])
+        for key in ("expected_tds_tcs", "net_advance_tax_liability", "advance_tax_paid",
+                    "annual_remaining", "schedule", "next_payment", "senior_exempt"):
+            wrong = copy.deepcopy(plan)
+            wrong[key] = None
+            self.assertIn(key, advance_plan_errors(inp, 208_000, wrong))
 
 
 if __name__ == "__main__":

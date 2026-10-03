@@ -24,6 +24,8 @@ resident-individual computation:
      rounded total income, so a bump can lawfully flip a tier boundary and
      land the rounded payable one quantum lower (old regime exempt: its
      5,00,000 87A rebate cliff is statutory).
+  9  Advance-tax credits, eligibility, statutory schedule, dated payments and
+     next unpaid target reconcile independently with the input.
 
 Zero dependencies (Python 3.9+ stdlib). Fully deterministic for a given
 --seed: every random draw flows from one random.Random(seed).
@@ -31,6 +33,7 @@ Zero dependencies (Python 3.9+ stdlib). Fully deterministic for a given
 Usage:
     python3 fuzz_engine.py                        # 2000 cases, seed 42
     python3 fuzz_engine.py --cases 20000 --seed 7 --verbose
+    python3 fuzz_engine.py --financial-year 2026-27 --purpose advance_tax
 
 Exit 0: every invariant held. Exit 1: a shrunk repro JSON is printed for
 each violated invariant (at most 5) with a per-invariant tally - save the
@@ -200,6 +203,8 @@ def gen_case(rng, financial_year="2025-26", purpose="return"):
 
     if rng.random() < 0.2:
         income["business_presumptive_income"] = rand_amount(rng)
+        if rng.random() < 0.8:
+            income["presumptive_section"] = rng.choice(("44AD", "44ADA"))
     if income or rng.random() < 0.5:
         inp["income"] = income
 
@@ -232,19 +237,25 @@ def gen_case(rng, financial_year="2025-26", purpose="return"):
         f = (date.fromisoformat(rng.choice(due_dates))
              + timedelta(days=rng.randint(-5, 5)))
     else:
-        f = date(y + 1, 6, 1) + timedelta(days=rng.randint(0, 300))
+        f = date(y + 1, 6, 1) + timedelta(days=rng.randint(0, 213))
     inp["filing_date"] = f.isoformat()
+    if purpose == "return" and rng.random() < 0.05:
+        inp.pop("filing_date")
     if purpose == "advance_tax":
         del inp["filing_date"]
         inp.pop("due_date", None)
-        as_of = date(y, 4, 1) + timedelta(days=rng.randint(0, 364))
+        boundaries = [date(y, 4, 1), date(y, 6, 15), date(y, 9, 15),
+                      date(y, 12, 15), date(y + 1, 3, 15), date(y + 1, 3, 31)]
+        as_of = (rng.choice(boundaries) if rng.random() < 0.5 else
+                 date(y, 4, 1) + timedelta(days=rng.randint(0, 364)))
         inp["as_of_date"] = as_of.isoformat()
         tp.pop("self_assessment", None)
         tp["advance_tax"] = [p for p in tp.get("advance_tax", [])
                               if p["date"] <= inp["as_of_date"]]
         inp["taxes_paid"] = tp
-        inp["expected_tax_credits"] = {k: tp.get(k, 0) + rand_deduction(rng)
-                                       for k in ("tds", "tcs")}
+        if rng.random() < 0.8:
+            inp["expected_tax_credits"] = {k: tp.get(k, 0) + rand_deduction(rng)
+                                           for k in ("tds", "tcs")}
     if rng.random() < 0.1:
         inp["residential_status"] = "resident"
     return inp
@@ -271,6 +282,51 @@ def apply_bump(inp, field, delta):
 # Invariants
 # ---------------------------------------------------------------------------
 
+def fuzz_today(inp):
+    return date(int(inp.get("financial_year", "2025-26")[:4]) + 1, 7, 20)
+
+
+def advance_plan_errors(inp, liability, plan):
+    from decimal import Decimal, ROUND_HALF_UP
+    def rounded(value):
+        return int((Decimal(str(value)) / 10).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * 10)
+    taxes = inp.get("taxes_paid", {})
+    credits = inp.get("expected_tax_credits", taxes)
+    credit = sum(credits.get(k, 0) for k in ("tds", "tcs"))
+    net = max(0, liability - credit)
+    income = inp.get("income", {})
+    exempt = (inp.get("age_category") in ("senior", "super_senior")
+              and income.get("business_presumptive_income", 0) == 0)
+    required = net >= 10_000 and not exempt
+    paid = sum(p["amount"] for p in taxes.get("advance_tax", []))
+    y = int(inp["financial_year"][:4])
+    dates = [(f"{y}-06-15", 15), (f"{y}-09-15", 45),
+             (f"{y}-12-15", 75), (f"{y + 1}-03-15", 100)]
+    if income.get("presumptive_section") in ("44AD", "44ADA"):
+        dates = dates[-1:]
+    rows = []
+    for day, pct in dates if required else []:
+        target = rounded(net * pct / 100)
+        by_deadline = sum(p["amount"] for p in taxes.get("advance_tax", []) if p["date"] <= day)
+        rows.append({"due_date": day, "cumulative_percent": pct, "cumulative_required": target,
+                     "paid_by_deadline": round(by_deadline), "paid_to_date": round(paid),
+                     "shortfall_at_deadline": rounded(max(0, target - by_deadline)),
+                     "outstanding_now": rounded(max(0, target - paid)),
+                     "deadline_passed": day < inp["as_of_date"]})
+    remaining = rounded(max(0, net - paid)) if required else 0
+    upcoming = next((r for r in rows if r["due_date"] >= inp["as_of_date"] and r["outstanding_now"]), None)
+    payment = None
+    if remaining:
+        payment = {"due_date": upcoming["due_date"] if upcoming else f"{y + 1}-03-31",
+                   "amount": upcoming["outstanding_now"] if upcoming else remaining,
+                   "kind": "instalment" if upcoming else "year_end_top_up"}
+    expected = {"expected_tds_tcs": round(credit), "net_advance_tax_liability": rounded(net),
+                "senior_exempt": exempt, "advance_tax_required": required,
+                "advance_tax_paid": round(paid), "annual_remaining": remaining,
+                "schedule": rows, "next_payment": payment}
+    return [key for key, value in expected.items() if plan.get(key) != value]
+
+
 def run_case(inp, bump_field, bump_delta):
     """Run every invariant against one input. Returns a list of violations:
     {"invariant", "message", "input", "bump"} - "input" is the exact dict
@@ -281,11 +337,11 @@ def run_case(inp, bump_field, bump_delta):
         fails.append({"invariant": inv, "message": msg, "input": case, "bump": bump})
 
     try:
-        r1 = tax_engine.compute(inp)
+        r1 = tax_engine.compute(inp, today=fuzz_today(inp))
     except Exception as e:                                     # invariant 1
         fail("1-no-raise", f"compute() raised {type(e).__name__}: {e}")
         return fails
-    r2 = tax_engine.compute(inp)
+    r2 = tax_engine.compute(inp, today=fuzz_today(inp))
     if json.dumps(r1) != json.dumps(r2):                       # invariant 2
         fail("2-determinism", "two identical compute() calls returned different JSON")
 
@@ -313,17 +369,9 @@ def run_case(inp, bump_field, bump_delta):
             if fees["234F"] not in (0, 1_000, 5_000):
                 fail("4-bounds", pre + f"234F={fees['234F']} not in {{0, 1000, 5000}}")
         else:
-            plan = c["advance_tax"]
-            payment = plan["next_payment"]
-            if payment:
-                target = next((s["cumulative_required"] for s in plan["schedule"]
-                               if s["due_date"] == payment["due_date"]),
-                              plan["net_advance_tax_liability"])
-                expected = tax_engine._r10(max(0, target - plan["advance_tax_paid"]))
-                if payment["amount"] != expected or payment["amount"] < 0:
-                    fail("9-advance-plan", pre + "next payment does not reconcile")
-            if plan["senior_exempt"] and (payment or plan["schedule"]):
-                fail("9-advance-plan", pre + "exempt senior has an instalment")
+            mismatches = advance_plan_errors(inp, t["total_tax_liability"], c["advance_tax"])
+            if mismatches:
+                fail("9-advance-plan", pre + "input-derived plan mismatch: " + ", ".join(mismatches))
         if t["surcharge_marginal_relief"] > t["surcharge"]:
             fail("4-bounds", pre + f"surcharge_marginal_relief="
                  f"{t['surcharge_marginal_relief']} > surcharge={t['surcharge']}")
@@ -353,7 +401,7 @@ def run_case(inp, bump_field, bump_delta):
 
     bumped = apply_bump(inp, bump_field, bump_delta)           # invariant 8
     try:
-        rb = tax_engine.compute(bumped)
+        rb = tax_engine.compute(bumped, today=fuzz_today(bumped))
     except Exception as e:
         fail("1-no-raise", f"compute() raised {type(e).__name__}: {e} (bumped input)",
              case=bumped)
@@ -397,7 +445,7 @@ def _parent_of(root, path):
 def _still_fails(candidate, inv, bump_field, bump_delta):
     """Shrink predicate: candidate must stay schema-valid AND still violate
     the same invariant."""
-    errors, _ = validate_check(candidate)
+    errors, _ = validate_check(candidate, today=fuzz_today(candidate))
     if errors:
         return False
     return any(v["invariant"] == inv for v in run_case(candidate, bump_field, bump_delta))
@@ -502,7 +550,7 @@ def main(argv=None):
         bump_field = rng.choice(BUMP_FIELDS)
         bump_delta = rng.randint(1_000, 100_000)
 
-        errors, _ = validate_check(inp)
+        errors, _ = validate_check(inp, today=fuzz_today(inp))
         if errors:
             print(f"FUZZER BUG (case {case_no}): generator emitted schema-invalid input:",
                   file=sys.stderr)

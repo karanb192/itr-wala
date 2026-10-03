@@ -62,6 +62,7 @@ SCHEMA = {
             "family_pension": "num", "winnings": "num", "other": "num",
         },
         "business_presumptive_income": "num",
+        "presumptive_section": "str",
     },
     "deductions": {
         "80c": "num", "80ccd_1b": "num", "80ccd_2": "num", "80d": "num",
@@ -112,7 +113,7 @@ def _lst(x):
     return x if isinstance(x, list) else []
 
 
-def check(inp, raw=""):
+def check(inp, raw="", today=None):
     errors, warnings = [], []
 
     # Everything below assumes a dict root; bail out cleanly otherwise.
@@ -161,7 +162,7 @@ def check(inp, raw=""):
                     errors.append(f"{path}{key}: must be a list")
 
     walk(inp, SCHEMA, "")
-    errors.extend(context_errors(inp))
+    errors.extend(context_errors(inp, today))
     try:
         rules = year_rules(inp)
     except ValueError:
@@ -211,15 +212,12 @@ def check(inp, raw=""):
                 errors.append(f"taxes_paid.{field}[{i}].amount: must be a "
                               "non-negative number")
             if "date" not in p:
-                sections = rules["sections"] if rules else {"late_interest": "234A", "deferment_interest": "234C"}
-                errors.append(f"taxes_paid.{field}[{i}].date is required - the engine "
-                              "treats an undated payment as paid-at-filing, which "
-                              f"forfeits s.{sections['late_interest']}/"
-                              f"s.{sections['deferment_interest']} credit")
+                errors.append(f"taxes_paid.{field}[{i}].date is required - " +
+                              ("use the challan date, within this FY and on or before as_of_date"
+                               if planning else "use the challan date so interest reflects when tax was paid"))
             elif not _valid_iso_date(p["date"]):
                 errors.append(f"taxes_paid.{field}[{i}].date: must be YYYY-MM-DD "
-                              f"(got {p['date']!r}) - the engine would silently "
-                              "treat an unparseable date as paid-at-filing")
+                              f"(got {p['date']!r})")
             elif field == "advance_tax" and rules and not (
                     start <= date.fromisoformat(p["date"]) <= end):
                 errors.append(f"taxes_paid.advance_tax[{i}].date {p['date']}: outside "
@@ -236,16 +234,6 @@ def check(inp, raw=""):
     if planning and _lst(_dct(inp.get("taxes_paid")).get("self_assessment")):
         errors.append("taxes_paid.self_assessment: omit self-assessment payments "
                       "from advance-tax planning")
-
-    # -- date checks (a malformed date would silently fall back to defaults) --
-    for k in ("due_date", "filing_date"):
-        if k in inp and not _valid_iso_date(inp[k]):
-            errors.append(f"{k}: must be YYYY-MM-DD (got {inp[k]!r})")
-    fd = inp.get("filing_date")
-    if fd is not None and _valid_iso_date(fd) and end and date.fromisoformat(fd) <= end:
-        following = date(end.year, 4, 1).isoformat()
-        errors.append(f"filing_date {fd}: the FY {rules['fy']} return cannot be filed "
-                      f"before {following}; use purpose 'advance_tax' for an estimate")
 
     # -- enum checks --
     if inp.get("regime") not in (None, "new", "old", "both"):
@@ -264,6 +252,15 @@ def check(inp, raw=""):
     sal = _dct(inc.get("salary"))
     st = _dct(inp.get("source_totals"))
     tp = _dct(inp.get("taxes_paid"))
+    business = inc.get("business_presumptive_income", 0)
+    if _is_num(business) and business > 0 and not inc.get("presumptive_section"):
+        warnings.append("Confirm presumptive eligibility and set income.presumptive_section "
+                        "to 44AD or 44ADA; until then the engine uses quarterly instalments. "
+                        "44AE is unsupported.")
+    ptax = sal.get("professional_tax", 0)
+    if _is_num(ptax) and ptax > 2_500:
+        warnings.append("Professional tax exceeds 2,500: confirm actual payments, including "
+                        "any arrears or multiple-State payments. This is a check, not a deduction cap.")
     if planning:
         expected = _dct(inp.get("expected_tax_credits"))
         if "expected_tax_credits" not in inp:
@@ -278,12 +275,16 @@ def check(inp, raw=""):
 
     # -- cross-checks against document totals --
     parts = [sal.get(k) for k in ("form16_17_1", "form16_17_2", "form16_17_3")]
-    if any(_is_num(x) for x in parts) and _is_num(sal.get("gross")):
+    if planning and (any(_is_num(x) for x in parts) or "form16_gross_salary" in st):
+        warnings.append("Advance-tax salary.gross is a full-year forecast. Form 16/source salary "
+                        "totals may cover a different period; reconcile periods separately and "
+                        "do not reduce the annual forecast to match year-to-date or prior-year totals.")
+    if not planning and any(_is_num(x) for x in parts) and _is_num(sal.get("gross")):
         total = sum(x for x in parts if _is_num(x))
         if abs(total - sal["gross"]) > 1:
             errors.append(f"Form 16 components 17(1)+17(2)+17(3) = {total:,.0f} but "
                           f"salary.gross = {sal['gross']:,.0f}. Re-read Form 16 Part B.")
-    if _is_num(st.get("form16_gross_salary")) and _is_num(sal.get("gross")):
+    if not planning and _is_num(st.get("form16_gross_salary")) and _is_num(sal.get("gross")):
         if abs(st["form16_gross_salary"] - sal["gross"]) > 1:
             errors.append(f"salary.gross ({sal['gross']:,.0f}) != Form 16 gross salary "
                           f"({st['form16_gross_salary']:,.0f})")

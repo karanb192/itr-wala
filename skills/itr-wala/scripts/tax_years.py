@@ -23,6 +23,34 @@ YEARS = {
     },
 }
 
+REFERENCES = {
+    "2025-26": {
+        "professional_tax": "16(iii)", "home_loan_cap": "24(b)",
+        "home_loan": "24(b)", "rental_deduction": "24(a)",
+        "hp_loss_cap": "71(3A)", "loss_setoff": "71", "family_pension": "57(iia)",
+        "employer_nps": "80CCD(2)", "savings": "80C", "property_cap": "112(1)(a), second proviso",
+        "stcg": "111A", "equity_ltcg": "112A", "other_ltcg": "112",
+        "vda": "115BBH", "winnings": "115BB/115BBJ", "salary_relief": "89",
+        "senior_exemption": "207(2)", "advance_credits": "209", "belated": "139(4)",
+        "regime_election": "115BAC(6)", "on_time_return": "139(1)",
+    },
+    "2026-27": {
+        "professional_tax": "19(1), Table 1", "home_loan_cap": "22(2)",
+        "home_loan": "22(1)(b)", "rental_deduction": "22(1)(a)",
+        "hp_loss_cap": "109(1)(b)", "loss_setoff": "109", "family_pension": "93(1)(d)",
+        "employer_nps": "124(1)/(2)", "savings": "123", "property_cap": "197(3)",
+        "stcg": "196", "equity_ltcg": "198", "other_ltcg": "197",
+        "vda": "194(1), Table 4", "winnings": "194(1), Tables 1/5", "salary_relief": "157",
+        "senior_exemption": "403(3)", "advance_credits": "405", "belated": "263(4)",
+        "regime_election": "202(4)", "on_time_return": "263(1)",
+    },
+}
+
+
+def section(inp, name):
+    rules = year_rules(inp)
+    return "s." + (rules["sections"].get(name) or REFERENCES[rules["fy"]][name])
+
 
 def year_rules(inp):
     fy = inp.get("financial_year", "2025-26")
@@ -51,7 +79,15 @@ def advance_schedule(rules, presumptive=False):
             (date(y + 1, 3, 15), 1.00, 1, None)]
 
 
-def context_errors(inp):
+def effective_filing_date(inp, today=None):
+    return date.fromisoformat(inp["filing_date"]) if inp.get("filing_date") else (today or date.today())
+
+
+def single_presumptive_instalment(inp):
+    return inp.get("income", {}).get("presumptive_section") in ("44AD", "44ADA")
+
+
+def context_errors(inp, today=None):
     errors = []
     try:
         rules = year_rules(inp)
@@ -60,6 +96,10 @@ def context_errors(inp):
     purpose = inp.get("purpose", "return")
     if purpose not in ("return", "advance_tax"):
         return ["purpose must be 'return' or 'advance_tax'"]
+    income = inp.get("income")
+    if isinstance(income, dict) and "presumptive_section" in income:
+        if income["presumptive_section"] not in ("44AD", "44ADA"):
+            errors.append("presumptive_section must be '44AD' or '44ADA' (stable identifiers for both years); 44AE is unsupported")
     if purpose == "advance_tax":
         if "financial_year" not in inp:
             errors.append("financial_year is required for advance-tax planning")
@@ -84,7 +124,9 @@ def context_errors(inp):
         for field in ("due_date", "filing_date"):
             raw = inp.get(field)
             if raw is None:
-                continue
+                if field != "filing_date":
+                    continue
+                raw = (today or date.today()).isoformat()
             if not isinstance(raw, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
                 errors.append(field + ": must be YYYY-MM-DD")
                 continue
@@ -95,6 +137,9 @@ def context_errors(inp):
                                   "use purpose 'advance_tax' for current-year estimates")
                 elif field == "due_date" and d > date(rules["start_year"] + 2, 3, 31):
                     errors.append("due_date: does not belong to the selected income year")
+                elif field == "filing_date" and d > date(rules["start_year"] + 1, 12, 31):
+                    errors.append("filing_date: the normal belated-return window has closed; "
+                                  "an updated return may be available, but this workflow does not support it")
             except ValueError:
                 errors.append(field + ": must be a real YYYY-MM-DD date")
     return errors

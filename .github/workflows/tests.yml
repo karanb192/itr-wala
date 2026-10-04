@@ -24,8 +24,15 @@ jobs:
       - name: Extraction tooling test suite
         run: python3 skills/itr-wala/scripts/test_extraction.py
       - name: Property fuzz (seeded, deterministic)
-        run: python3 skills/itr-wala/scripts/fuzz_engine.py --cases 3000 --seed 42
+        run: |
+          for fy in 2025-26 2026-27; do
+            for purpose in return advance_tax; do
+              python3 skills/itr-wala/scripts/fuzz_engine.py --cases 3000 --seed 42 --financial-year "$fy" --purpose "$purpose"
+            done
+          done
       - name: Validate example income.json
         run: |
           python3 skills/itr-wala/scripts/validate_income.py skills/itr-wala/assets/example-income.json
           python3 skills/itr-wala/scripts/tax_engine.py skills/itr-wala/assets/example-income.json > /dev/null
+          python3 skills/itr-wala/scripts/validate_income.py skills/itr-wala/assets/example-advance-fy2026-27.json
+          python3 skills/itr-wala/scripts/tax_engine.py skills/itr-wala/assets/example-advance-fy2026-27.json > /dev/null

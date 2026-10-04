@@ -17,17 +17,31 @@ From the repo root:
 ```bash
 python3 skills/itr-wala/scripts/test_tax_engine.py        # golden tests, hand-derived expected values
 python3 skills/itr-wala/scripts/test_validate_income.py   # input validator suite
-python3 skills/itr-wala/scripts/fuzz_engine.py            # property-based fuzzer (seeded, deterministic)
+python3 skills/itr-wala/scripts/test_extraction.py
+python3 -m unittest discover -s tests -p 'test_star_invitation.py'
+for fy in 2025-26 2026-27; do
+  for purpose in return advance_tax; do
+    python3 skills/itr-wala/scripts/fuzz_engine.py --cases 3000 --seed 42 --financial-year "$fy" --purpose "$purpose"
+  done
+done
 ```
 
-All three must pass. CI runs them on Python 3.9 and 3.12, plus a 3,000-case fuzz sweep, on every push and PR.
+All four unit suites and all four fuzzer combinations must pass. CI runs these on
+Python 3.9 and 3.12, with 12,000 fuzz cases per version, on every push and PR.
+The fuzzer pins the default filing clock to 20 July after the selected income year,
+including cases with no filing date. Clock-boundary tests cover invalid contexts.
+Its ninth invariant derives advance-tax targets and payments from input fields.
 
 ## What help is most wanted
 
 - **Wrong-rate or wrong-interest reports.** Top priority in season. Open an issue with a minimal `income.json` repro and what the figure should be, with the section of the Act.
 - **Portal walkthrough fixes.** `references/portal-walkthrough.md` rots fastest because the e-filing portal changes without notice. Quote the file and line you are correcting.
 - **Coverage gaps.** RSU/ESPP and Schedule FA, the s.112 property indexation option, revised returns, native Windows support. Check the README roadmap before starting something big, and open an issue first for anything that touches the engine.
-- **Next year.** When the Finance Act changes rates, the constants block in `tax_engine.py`, the reference docs, and the golden tests all move together in one PR.
+- **Next year.** `tax_years.py` owns supported years, dates and legal references;
+  `tax_engine.py` shares numerical rates only where the statutes agree. Update
+  both, the reference docs and hand-derived tests together. Never silently reuse
+  a previous year's labels or forms. FY 2025-26 and FY 2026-27 are supported;
+  later years fail closed.
 
 ## Style
 

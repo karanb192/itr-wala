@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic Indian income-tax engine for FY 2025-26 (AY 2026-27).
+"""Deterministic Indian income-tax engine for FY 2025-26 and FY 2026-27.
 
 Resident individuals only. Computes tax under both the new (default) and old
 regimes: slab tax, special-rate capital gains, VDA and lottery/online-game
@@ -20,17 +20,19 @@ the input JSON and reads the output. Every rupee figure comes from here.
 
 import itertools
 import json
+import re
 import sys
 from datetime import date, timedelta
+
+from tax_years import (advance_schedule, context_errors, effective_filing_date, fy_dates,
+                       return_due_date, section, single_presumptive_instalment, year_rules)
 
 if sys.version_info < (3, 9):
     sys.exit("itr-wala needs Python 3.9 or newer (found %d.%d)." % sys.version_info[:2])
 
-FY = "2025-26"
-AY = "2026-27"
-
 # ---------------------------------------------------------------------------
-# FY 2025-26 (AY 2026-27) rule constants. One block per year; update annually.
+# Shared numerical rates for the two explicitly supported income years.
+# Verified against Finance Act 2026 and Income-tax Act 2025, as amended.
 # ---------------------------------------------------------------------------
 
 NEW_REGIME = {
@@ -44,7 +46,7 @@ NEW_REGIME = {
         (None, 0.30),
     ],
     "standard_deduction": 75_000,
-    "rebate_87a_limit": 1_200_000,   # taxable (slab-rate) income threshold
+    "rebate_87a_limit": 1_200_000,   # total-income threshold, including special income
     "rebate_87a_max": 60_000,
     "basic_exemption": 400_000,
     "surcharge_cap": 0.25,           # 37% tier does not apply in new regime
@@ -153,8 +155,8 @@ def compute_salary(inp, regime_key, warnings):
     regime = OLD_REGIME if regime_key == "old" else NEW_REGIME
     std = min(regime["standard_deduction"], _pos(gross - retire - exempt))
     if regime_key == "new" and _pos(sal.get("professional_tax")):
-        warnings.append("New regime: professional tax (s.16(iii)) not deductible - ignored.")
-    ptax = min(_pos(sal.get("professional_tax")), 5_000) if regime_key == "old" else 0.0
+        warnings.append(f"New regime: professional tax ({section(inp, 'professional_tax')}) not deductible - ignored.")
+    ptax = _pos(sal.get("professional_tax")) if regime_key == "old" else 0.0
     net = _pos(gross - retire - exempt - std - ptax)
     return net, {"gross": gross, "exempt_retirement": retire, "exempt_allowances": exempt,
                  "standard_deduction": std, "professional_tax": ptax, "net": net}
@@ -174,7 +176,7 @@ def compute_house_property(inp, regime_key, warnings):
                 income = -allowed
                 if interest > 30_000 and not warned_24b:
                     warned_24b = True
-                    warnings.append("s.24(b): the 2,00,000 self-occupied cap assumes a loan "
+                    warnings.append(f"{section(inp, 'home_loan_cap')}: the 2,00,000 self-occupied cap assumes a loan "
                                     "taken on/after 1-Apr-1999 for purchase/construction "
                                     "completed within 5 years; for repair/renovation or "
                                     "pre-1999 loans the lawful cap is 30,000 - confirm the "
@@ -182,7 +184,7 @@ def compute_house_property(inp, regime_key, warnings):
             else:
                 income = 0.0
                 if interest:
-                    warnings.append("New regime: self-occupied home-loan interest (s.24b) not deductible - ignored.")
+                    warnings.append(f"New regime: self-occupied home-loan interest ({section(inp, 'home_loan')}) not deductible - ignored.")
         else:  # let_out
             nav = _pos(p.get("rent_received")) - _pos(p.get("municipal_taxes"))
             # s.23(2)/s.24(a): municipal taxes are deductible only up to the
@@ -191,7 +193,7 @@ def compute_house_property(inp, regime_key, warnings):
             # that could then set off against other heads under s.71.
             if nav < 0:
                 warnings.append("Municipal taxes exceed rent on a let-out property - "
-                                "the s.24(a) deduction is limited to the annual value, "
+                                f"the {section(inp, 'rental_deduction')} deduction is limited to the annual value, "
                                 "so NAV is taken as 0. Confirm the figures; municipal "
                                 "taxes above rent are usually a transcription error.")
                 nav = 0.0
@@ -201,7 +203,7 @@ def compute_house_property(inp, regime_key, warnings):
     if total < 0:
         if regime_key == "old":
             if total < -CAP_HP_LOSS_SETOFF:
-                warnings.append("House-property loss capped at 2,00,000 for set-off (s.71(3A)); "
+                warnings.append(f"House-property loss capped at 2,00,000 for set-off ({section(inp, 'hp_loss_cap')}); "
                                 "balance carries forward (not tracked here).")
             total = max(total, -CAP_HP_LOSS_SETOFF)
         else:
@@ -232,7 +234,7 @@ def compute_other_sources(inp, regime_key, warnings):
     if parts["family_pension"]:
         cap = CAP_57IIA_NEW if regime_key == "new" else CAP_57IIA_OLD
         fp_ded = min(parts["family_pension"] / 3.0, cap)
-        warnings.append(f"Family pension: s.57(iia) deduction of {round(fp_ded):,} applied "
+        warnings.append(f"Family pension: {section(inp, 'family_pension')} deduction of {round(fp_ded):,} applied "
                         "(one-third of the pension, capped - available in both regimes).")
     parts["deduction_57iia"] = fp_ded
     parts["total"] = (parts["savings_interest"] + parts["fd_interest"] + parts["dividends"]
@@ -249,21 +251,24 @@ def allowed_deductions(inp, regime_key, heads, warnings):
     if ccd2:
         pct = (NEW_REGIME if regime_key == "new" else OLD_REGIME)["nps_80ccd2_pct"]
         if basic and ccd2 > pct * basic:
-            warnings.append(f"80CCD(2) capped at {int(pct*100)}% of basic+DA = {_r10(pct*basic):,}.")
+            warnings.append(f"Employer NPS ({section(inp, 'employer_nps')}) capped at {int(pct*100)}% of basic+DA = {_r10(pct*basic):,}.")
             ccd2 = pct * basic
         out["80ccd_2"] = ccd2
     if regime_key == "new":
         skipped = [k for k in ("80c", "80ccd_1b", "80d", "80tta_ttb", "80g", "other")
                    if _pos(d.get(k)) > 0]
         if skipped:
-            warnings.append("New regime: " + ", ".join(s.upper() for s in skipped)
+            names = {"80c": "eligible savings", "80ccd_1b": "personal NPS",
+                     "80d": "medical insurance", "80tta_ttb": "deposit interest",
+                     "80g": "donations", "other": "other claimed deductions"}
+            warnings.append("New regime: " + ", ".join(names[s] for s in skipped)
                             + " not deductible - ignored (compare with old regime!).")
         return out
 
     age = inp.get("age_category", "regular")
     out["80c"] = min(_pos(d.get("80c")), CAP_80C)
     if _pos(d.get("80c")) > CAP_80C:
-        warnings.append("80C capped at 1,50,000.")
+        warnings.append(f"Eligible savings deduction ({section(inp, 'savings')}) capped at 1,50,000.")
     out["80ccd_1b"] = min(_pos(d.get("80ccd_1b")), CAP_80CCD_1B)
     out["80d"] = _pos(d.get("80d"))  # user supplies eligible amount; caps vary by family mix
     tta = _pos(d.get("80tta_ttb"))
@@ -300,9 +305,9 @@ def compute_regime(inp, regime_key):
     winnings = other["winnings"]
 
     if cg["ltcg_other"] > 0:
-        warnings.append("s.112 LTCG taxed at 12.5% without indexation. For land/building "
+        warnings.append(f"{section(inp, 'other_ltcg')} LTCG taxed at 12.5% without indexation. For land/building "
                         "acquired on/before 22-Jul-2024, tax on that asset is capped at 20% "
-                        "of the INDEXED gain (2nd proviso to s.112(1)(a)) - this engine "
+                        f"of the INDEXED gain ({section(inp, 'property_cap')}) - this engine "
                         "cannot apply that cap; if 20% of the indexed gain is lower, this "
                         "figure overstates the tax - use the offline utility or a CA for "
                         "that asset.")
@@ -331,7 +336,7 @@ def compute_regime(inp, regime_key):
             setoff += take
         if setoff:
             warnings.append(f"House-property loss of {round(setoff):,} set off against "
-                            "capital gains (s.71) - mirror this in Schedule CYLA.")
+                            f"capital gains ({section(inp, 'loss_setoff')}) - mirror this in the current-year loss-adjustment schedule.")
         if hp_residual - setoff > 0:
             warnings.append(f"House-property loss of {round(hp_residual - setoff):,} could "
                             "not be set off this year - carry-forward (Schedule CFL) is "
@@ -354,9 +359,8 @@ def compute_regime(inp, regime_key):
         order (residents only; never VDA/winnings - s.115BBH, s.115BB), then
         compute special tax and the 87A rebate.
 
-        New regime (Finance Act 2025): the 12L threshold is tested on income
-        chargeable at SLAB rates (special-rate income excluded), and the rebate
-        applies only against slab-rate tax. Old regime: threshold on total
+        New regime: the 12L threshold is tested on TOTAL income, and the
+        rebate applies only against slab-rate tax. Old regime: threshold on total
         income; rebate covers all tax except 112A LTCG (s.112A(6)) and - safe
         posture - VDA/winnings. Thresholds are tested on s.288A-rounded
         figures (5,00,004 rounds to 5,00,000 and keeps the old-regime rebate).
@@ -371,19 +375,19 @@ def compute_regime(inp, regime_key):
             t[key] -= take
             ube -= take
         specials = [
-            {"section": "111A STCG (equity)", "income": cg["stcg_111a"], "in_ti": rem["111a"],
+            {"kind": "stcg", "section": f"{section(inp, 'stcg')} STCG (equity)", "income": cg["stcg_111a"], "in_ti": rem["111a"],
              "taxable": t["111a"], "rate": RATE_STCG_111A,
              "tax": t["111a"] * RATE_STCG_111A, "cap15": True},
-            {"section": "112A LTCG (equity)", "income": cg["ltcg_112a"], "in_ti": rem["112a"],
+            {"kind": "equity_ltcg", "section": f"{section(inp, 'equity_ltcg')} LTCG (equity)", "income": cg["ltcg_112a"], "in_ti": rem["112a"],
              "taxable": t["112a"], "rate": RATE_LTCG_112A,
              "tax": t["112a"] * RATE_LTCG_112A, "cap15": True},
-            {"section": "112 LTCG (other)", "income": cg["ltcg_other"], "in_ti": rem["112"],
+            {"kind": "other_ltcg", "section": f"{section(inp, 'other_ltcg')} LTCG (other)", "income": cg["ltcg_other"], "in_ti": rem["112"],
              "taxable": t["112"], "rate": RATE_LTCG_OTHER,
              "tax": t["112"] * RATE_LTCG_OTHER, "cap15": True},
-            {"section": "115BBH VDA/crypto", "income": cg["vda"], "in_ti": cg["vda"],
+            {"kind": "vda", "section": f"{section(inp, 'vda')} VDA/crypto", "income": cg["vda"], "in_ti": cg["vda"],
              "taxable": cg["vda"], "rate": RATE_VDA,
              "tax": cg["vda"] * RATE_VDA, "cap15": False},
-            {"section": "115BB/BBJ winnings", "income": winnings, "in_ti": winnings,
+            {"kind": "winnings", "section": f"{section(inp, 'winnings')} winnings", "income": winnings, "in_ti": winnings,
              "taxable": winnings, "rate": RATE_WINNINGS,
              "tax": winnings * RATE_WINNINGS, "cap15": False},
         ]
@@ -391,34 +395,32 @@ def compute_regime(inp, regime_key):
         tax_special = sum(s["tax"] for s in specials)
         rebate, mr87a, notes = 0.0, 0.0, []
         if regime_key == "new":
-            slab_r = _r10(slab_income)
-            if slab_r <= NEW_REGIME["rebate_87a_limit"]:
+            if total_income <= NEW_REGIME["rebate_87a_limit"]:
                 rebate = min(tax_slab, NEW_REGIME["rebate_87a_max"])
             else:
-                excess = slab_r - NEW_REGIME["rebate_87a_limit"]
-                if tax_slab > excess:  # marginal relief: pay no more than the excess
-                    mr87a = tax_slab - excess
+                excess = total_income - NEW_REGIME["rebate_87a_limit"]
+                mr87a = min(tax_slab, _pos(tax_slab + tax_special - excess))
         else:
             if total_income <= OLD_REGIME["rebate_87a_limit"]:
                 # The FA 2025 special-rate denial amended only the new-regime
                 # proviso, so 111A/112 tax stays rebate-eligible here (Bombay
                 # HC, ITAT Ahd) - though CPC and Circular 13/2025 disagree.
                 tax_112a = sum(s["tax"] for s in specials
-                               if s["section"].startswith("112A"))
+                               if s["kind"] == "equity_ltcg")
                 tax_no87a = sum(s["tax"] for s in specials
-                                if s["section"].startswith(("115BBH", "115BB/")))
+                                if s["kind"] in ("vda", "winnings"))
                 rebate = min(_pos(tax_slab + tax_special - tax_112a - tax_no87a),
                              OLD_REGIME["rebate_87a_max"])
                 if rebate and tax_no87a > 0:
-                    notes.append("Old regime: 87A rebate NOT applied against VDA/winnings "
+                    notes.append(f"Old regime: {section(inp, 'rebate')} rebate NOT applied against VDA/winnings "
                                  "tax - the claim is arguable but unsupported, and the "
                                  "utility treats special-rate income as outside the rebate.")
                 if rebate > tax_slab and (t["111a"] or t["112"]):
-                    notes.append("Old regime: 87A rebate applied against s.111A/112 tax - "
-                                 "statute and ITAT rulings support this, but CPC has disputed "
-                                 "similar claims in processing (CBDT Circular 13/2025 takes "
-                                 "the department's side); verify the portal accepts the "
-                                 "figure before filing.")
+                    notes.append(f"Old regime: {section(inp, 'rebate')} rebate applied against "
+                                 f"{section(inp, 'stcg')}/{section(inp, 'other_ltcg')} tax. "
+                                 "Verify the notified current-year utility accepts the figure "
+                                 "before filing; prior-year processing disputes do not "
+                                 "establish current-year portal treatment.")
         return {"specials": specials, "tax_special": tax_special, "rebate": rebate,
                 "mr87a": mr87a, "notes": notes,
                 "after": _pos(tax_slab + tax_special - rebate - mr87a)}
@@ -438,6 +440,11 @@ def compute_regime(inp, regime_key):
     rebate = chosen["rebate"]
     marginal_relief_87a = chosen["mr87a"]
     warnings.extend(chosen["notes"])
+    if (regime_key == "new" and special_total_net > 0 and slab_income <= 1_200_000
+            and total_income > 1_200_000 and marginal_relief_87a < min(tax_slab, 60_000)):
+        warnings.append(f"{section(inp, 'rebate')}: special-rate income takes total income above "
+                        "12,00,000, reducing or removing the slab-tax rebate. Include this "
+                        "effect when planning gains; the gains' tax alone is not the full cost.")
     tax_after_rebate = chosen["after"]
 
     # --- Surcharge with 15% cap on special CG/dividend income and marginal relief ---
@@ -451,7 +458,8 @@ def compute_regime(inp, regime_key):
     # assessed tax that drives 234A/B/C (Explanation 1 to s.234B).
     relief_89 = min(_pos(inp.get("relief_89")), pre_relief)
     if relief_89:
-        warnings.append(f"Relief u/s 89 of {round(relief_89):,} applied - Form 10E must be "
+        form = "the prescribed salary-arrears relief form" if year_rules(inp)["tax_year"] else "Form 10E"
+        warnings.append(f"Relief under {section(inp, 'salary_relief')} of {round(relief_89):,} applied - {form} must be "
                         "e-filed BEFORE the return, or CPC disallows the relief and raises "
                         "a demand.")
     total_liability = _r10(_pos(pre_relief - relief_89))
@@ -474,7 +482,7 @@ def compute_regime(inp, regime_key):
         "tax": {
             "slab_income": round(slab_income),
             "slab_tax": round(tax_slab),
-            "special": [{**{k: v for k, v in s.items() if k not in ("in_ti", "cap15")},
+            "special": [{**{k: v for k, v in s.items() if k not in ("in_ti", "cap15", "kind")},
                          "tax": round(s["tax"])} for s in specials],
             "special_tax": round(tax_special),
             "rebate_87a": round(rebate),
@@ -588,26 +596,26 @@ def _months_between(d1, d2):
     return max(months, 1)
 
 
-def compute_interest_and_fee(comp, inp):
+def compute_interest_and_fee(comp, inp, today=None):
     """234A/B/C + 234F. Simplified but deterministic; documented assumptions."""
     taxes = inp.get("taxes_paid") or {}
+    rules = year_rules(inp)
     tds = _pos(taxes.get("tds")) + _pos(taxes.get("tcs"))
 
-    # AY 2026-27 due dates (Finance Act 2026 split): ITR-1/2 -> 2026-07-31,
-    # non-audit ITR-3/4 -> 2026-08-31. Caller sets due_date per selected form.
     date_notes = []
     due = _parse_date(inp.get("due_date"))
     if due is None:
         state = "unparseable (use YYYY-MM-DD)" if inp.get("due_date") else "not provided"
-        date_notes.append(f"due_date {state} - defaulted to 2026-07-31 (ITR-1/2); "
-                          "non-audit ITR-3/4 filers must set 2026-08-31.")
-        due = date(2026, 7, 31)
+        business = comp["heads"]["business_presumptive"] > 0
+        due = return_due_date(rules, business)
+        date_notes.append(f"due_date {state} - defaulted to {due}; confirm the "
+                          "selected taxpayer's statutory due date and any extension.")
     filing = _parse_date(inp.get("filing_date"))
     if filing is None:
         state = "unparseable (use YYYY-MM-DD)" if inp.get("filing_date") else "not provided"
-        date_notes.append(f"filing_date {state} - defaulted to today ({date.today()}).")
-        filing = date.today()
-    fy_start, fy_end = date(2025, 4, 1), date(2026, 3, 31)
+        filing = effective_filing_date(inp, today)
+        date_notes.append(f"filing_date {state} - defaulted to today ({filing}).")
+    fy_start, fy_end = fy_dates(rules)
 
     # Advance tax is only what was paid within the FY (s.211). Payments dated
     # outside the window (or undated) still count as tax paid, but for the
@@ -621,8 +629,8 @@ def compute_interest_and_fee(comp, inp):
     stray_total = sum(_pos(a.get("amount")) for a in stray_advance)
     if stray_total:
         date_notes.append(f"Advance-tax payments of {round(stray_total):,} dated outside "
-                          "FY 2025-26 (or undated) treated as self-assessment payments "
-                          "for interest purposes (s.211).")
+                          f"FY {rules['fy']} (or undated) treated as self-assessment payments "
+                          f"for interest purposes ({section(inp, 'advance_tax')}).")
     self_asmt_list = list(taxes.get("self_assessment") or []) + stray_advance
     self_asmt = sum(_pos(a.get("amount")) for a in self_asmt_list)
     # (date, amount) of every non-advance payment, undated ones at filing
@@ -637,16 +645,17 @@ def compute_interest_and_fee(comp, inp):
 
     out = {"234A": 0, "234B": 0, "234C": 0, "234F": 0,
            "assumptions": date_notes +
-                          ["TDS treated as reducing advance-tax liability (s.209).",
-                           "234C assumes no eligible capital-gains carve-outs "
-                           "unless quarterly gains data provided."]}
+                          [f"TDS treated as reducing advance-tax liability ({section(inp, 'advance_credits')}).",
+                           f"Instalment interest ({section(inp, 'deferment_interest')}) does not model income-timing exceptions for capital gains, "
+                           "dividends or winnings; verify that interest separately."]}
 
     # Resident senior citizens with no business income owe no advance tax (s.207(2)).
     senior_exempt = (comp["age_category"] in ("senior", "super_senior")
                      and comp["heads"]["business_presumptive"] == 0)
     if senior_exempt:
         out["assumptions"].append("Senior citizen with no business income: "
-                                  "no advance-tax liability, 234B/234C waived (s.207).")
+                                  f"no advance-tax liability ({section(inp, 'senior_exemption')}); "
+                                  f"{section(inp, 'advance_interest')}/{section(inp, 'deferment_interest')} waived.")
 
     # 234F late fee (nil if total income is under the basic exemption limit)
     if filing > due and comp["total_income"] > comp["basic_exemption"]:
@@ -697,27 +706,13 @@ def compute_interest_and_fee(comp, inp):
             out["234B"] = int(interest)
 
         # 234C: cumulative 15/45/75/100% by Jun 15 / Sep 15 / Dec 15 / Mar 15.
-        # Presumptive-only filers (s.234C(1)(b)): single 100% installment by 15 Mar.
+        # Eligible presumptive taxpayers, including mixed income: single March instalment.
         heads = comp["heads"]
-        non_business = (heads["salary"].get("net", 0) + heads["house_property"]["income"]
-                        + sum(heads["capital_gains"].values())
-                        + heads["other_sources"]["total"]
-                        + heads["other_sources"]["winnings"])
-        if heads["business_presumptive"] > 0 and non_business <= 0:
-            checkpoints = [(date(2026, 3, 15), 1.00, 1, None)]
-            out["assumptions"].append("Presumptive-only income: single 100% advance-tax "
-                                      "installment by 15 Mar (s.234C).")
-        else:
-            checkpoints = [
-                (date(2025, 6, 15), 0.15, 3, 0.12),
-                (date(2025, 9, 15), 0.45, 3, 0.36),
-                (date(2025, 12, 15), 0.75, 3, None),
-                (date(2026, 3, 15), 1.00, 1, None),
-            ]
-            if heads["business_presumptive"] > 0:
-                out["assumptions"].append("Mixed presumptive + other income: 234C uses the "
-                                          "standard 4-installment schedule; the presumptive "
-                                          "portion may be overstated.")
+        presumptive = single_presumptive_instalment(inp)
+        checkpoints = advance_schedule(rules, presumptive)
+        if presumptive:
+            out["assumptions"].append("Eligible presumptive income: single 100% advance-tax "
+                                      f"installment by 15 Mar ({section(inp, 'deferment_interest')}).")
         paid_by = lambda d: sum(_pos(a.get("amount")) for a in advance_list
                                 if (_parse_date(a.get("date")) or filing) <= d)
         total_234c = 0.0
@@ -752,7 +747,13 @@ def _parse_date(s):
 # Entry
 # ---------------------------------------------------------------------------
 
-def compute(inp):
+def compute(inp, today=None):
+    today = today or date.today()
+    errors = context_errors(inp, today)
+    if errors:
+        raise ValueError("; ".join(errors))
+    rules = year_rules(inp)
+    purpose = inp.get("purpose", "return")
     want = inp.get("regime", "both")
     if want not in ("new", "old", "both"):
         raise ValueError(f"regime must be 'new', 'old' or 'both', got {want!r}")
@@ -764,30 +765,49 @@ def compute(inp):
     # Belated return (s.139(4)): the old-regime option is gone - s.115BAC(6)
     # requires the opt-out in a return filed by the s.139(1) due date, and
     # the e-filing utility enforces it.
-    due = _parse_date(inp.get("due_date")) or date(2026, 7, 31)
-    filing = _parse_date(inp.get("filing_date")) or date.today()
-    belated = filing > due
+    business = _pos(inp.get("income", {}).get("business_presumptive_income")) > 0
+    due = _parse_date(inp.get("due_date")) or return_due_date(rules, business)
+    filing = effective_filing_date(inp, today)
+    belated = purpose == "return" and filing > due
 
-    result: dict = {"fy": FY, "ay": AY, "engine_version": "1.2.0"}
+    result: dict = {"fy": rules["fy"], "ay": rules["ay"],
+                   "tax_year": rules["tax_year"], "act": rules["act"],
+                   "purpose": purpose, "sections": rules["sections"].copy(),
+                   "engine_version": "1.3.0"}
     regimes = ("new", "old") if want == "both" else (want,)
     for rk in regimes:
         comp = compute_regime(inp, rk)
-        comp["interest_and_fees"] = compute_interest_and_fee(comp, inp)
+        if purpose == "advance_tax":
+            comp["advance_tax"] = compute_advance_plan(comp, inp, rules)
+        else:
+            comp["interest_and_fees"] = compute_interest_and_fee(comp, inp, today)
+        if business and not single_presumptive_instalment(inp):
+            comp["warnings"].append("Presumptive section not supplied: using quarterly advance-tax "
+                                    "instalments. Confirm eligibility and set presumptive_section "
+                                    "to 44AD or 44ADA for the single March instalment. 44AE is unsupported.")
+        if "financial_year" not in inp:
+            comp["warnings"].append("financial_year omitted: using FY 2025-26 for "
+                                    "backward compatibility. Confirm the income year.")
+        if rules["tax_year"] and purpose == "return":
+            comp["warnings"].append("Annual computation for TY 2026-27: verify the "
+                                    "notified return form and utility before filing; "
+                                    "the AY 2026-27 portal walkthrough is for FY 2025-26.")
         if belated and rk == "old":
-            comp["warnings"].append("Belated return (s.139(4)): the old regime CANNOT be "
-                                    "opted - s.115BAC(6) requires the choice in a return "
-                                    "filed by the s.139(1) due date. Old-regime figures "
+            comp["warnings"].append(f"Belated return ({section(inp, 'belated')}): the old regime CANNOT be "
+                                    f"opted - {section(inp, 'regime_election')} requires the choice in a return "
+                                    f"filed by the {section(inp, 'on_time_return')} due date. Old-regime figures "
                                     "are informational only.")
         result[rk] = comp
     if len(regimes) == 2:
-        n = result["new"]["tax"]["total_tax_liability"] + result["new"]["interest_and_fees"]["total_interest_and_fee"]
-        o = result["old"]["tax"]["total_tax_liability"] + result["old"]["interest_and_fees"]["total_interest_and_fee"]
+        n, o = (result[rk]["tax"]["total_tax_liability"] +
+                result[rk].get("interest_and_fees", {}).get("total_interest_and_fee", 0)
+                for rk in ("new", "old"))
         better = "new" if (n <= o or belated) else "old"
         note = ("Recommendation is on submitted numbers only. Old regime needs "
                 "proofs for every deduction claimed.")
         if belated and o < n:
             note += (" Old regime would be cheaper but is unavailable in a belated "
-                     "return (s.115BAC(6)) - recommendation forced to new.")
+                     f"return ({section(inp, 'regime_election')}) - recommendation forced to new.")
         result["comparison"] = {
             "new_total": n, "old_total": o,
             "recommended_regime": better,
@@ -795,6 +815,64 @@ def compute(inp):
             "note": note,
         }
     return result
+
+
+def compute_advance_plan(comp, inp, rules):
+    as_of = date.fromisoformat(inp["as_of_date"])
+    taxes = inp.get("taxes_paid") or {}
+    expected = inp.get("expected_tax_credits", taxes)
+    credits = _pos(expected.get("tds")) + _pos(expected.get("tcs"))
+    net = _pos(comp["tax"]["total_tax_liability"] - credits)
+    senior_exempt = (comp["age_category"] in ("senior", "super_senior")
+                     and comp["heads"]["business_presumptive"] == 0)
+    liable = net >= ADVANCE_TAX_MIN and not senior_exempt
+    start, end = fy_dates(rules)
+    payments = []
+    for p in taxes.get("advance_tax", []):
+        d = _parse_date(p.get("date"))
+        if d is None or not start <= d <= as_of:
+            raise ValueError("Advance-tax payments must be dated within the selected "
+                             "financial_year and on or before as_of_date")
+        payments.append((d, _pos(p.get("amount"))))
+    if taxes.get("self_assessment"):
+        raise ValueError("Self-assessment payments are not advance-tax payments; "
+                         "omit them from advance-tax planning")
+    paid = sum(a for _, a in payments)
+    schedule = []
+    if liable:
+        for deadline, pct, _, _ in advance_schedule(
+                rules, single_presumptive_instalment(inp)):
+            target = _r10(net * pct)
+            paid_by = sum(a for d, a in payments if d <= deadline)
+            schedule.append({"due_date": deadline.isoformat(),
+                             "cumulative_percent": int(pct * 100),
+                             "cumulative_required": target,
+                             "paid_by_deadline": round(paid_by),
+                             "shortfall_at_deadline": _r10(_pos(target - paid_by)),
+                             "paid_to_date": round(paid),
+                             "outstanding_now": _r10(_pos(target - paid)),
+                             "deadline_passed": deadline < as_of})
+    upcoming = next((s for s in schedule if not s["deadline_passed"] and s["outstanding_now"] > 0), None)
+    next_payment = None
+    if liable and _r10(_pos(net - paid)) > 0:
+        target = upcoming["cumulative_required"] if upcoming else net
+        next_payment = {"due_date": upcoming["due_date"] if upcoming else end.isoformat(),
+                        "amount": _r10(_pos(target - paid)),
+                        "kind": "instalment" if upcoming else "year_end_top_up"}
+    assumptions = ["Annual figures are user-approved estimates, not a filed return.",
+                   "Expected TDS/TCS covers the full income year, not only credits seen today.",
+                   "Payment targets exclude interest. Historical instalment interest is not "
+                   "certified by this plan; capital-gain/dividend timing can affect it."]
+    if "expected_tax_credits" not in inp:
+        assumptions.append("No expected_tax_credits supplied: using only recorded TDS/TCS. "
+                           "This can overstate advance tax if further withholding is expected.")
+    return {"as_of_date": as_of.isoformat(), "annual_tax_liability": comp["tax"]["total_tax_liability"],
+            "expected_tds_tcs": round(credits), "net_advance_tax_liability": _r10(net),
+            "advance_tax_required": liable, "senior_exempt": senior_exempt,
+            "advance_tax_paid": round(paid), "schedule": schedule,
+            "next_payment": next_payment,
+            "annual_remaining": _r10(_pos(net - paid)) if liable else 0,
+            "assumptions": assumptions}
 
 
 def _fmt(n):
@@ -816,7 +894,13 @@ def _fmt(n):
 def render_table(result):
     lines = []
     add = lines.append
-    add(f"Income-tax computation for FY {FY} (AY {AY})")
+    def amount(label, value):
+        add(f"  {label:<46} {_fmt(value):>16}")
+    year_label = f"TY {result['tax_year']}" if result["tax_year"] else f"AY {result['ay']}"
+    add(f"Income-tax computation for FY {result['fy']} ({year_label})")
+    add(result["act"])
+    if result["purpose"] == "advance_tax":
+        add("ADVANCE-TAX ESTIMATE - not a return or refund calculation")
     add("=" * 64)
     for rk in ("new", "old"):
         if rk not in result:
@@ -824,33 +908,61 @@ def render_table(result):
         c = result[rk]
         t = c["tax"]
         add(f"\n[{rk.upper()} REGIME]")
-        add(f"  Gross total income        {_fmt(c['gross_total_income']):>16}")
-        add(f"  Deductions                {_fmt(c['deductions_total']):>16}")
-        add(f"  Total income              {_fmt(c['total_income']):>16}")
-        add(f"  Tax on slab income        {_fmt(t['slab_tax']):>16}")
+        amount("Gross total income", c['gross_total_income'])
+        amount("Deductions", c['deductions_total'])
+        amount("Total income", c['total_income'])
+        amount("Tax on slab income", t['slab_tax'])
         for s in t["special"]:
-            add(f"  {s['section']:<25} {_fmt(s['tax']):>16}")
+            amount(s['section'], s['tax'])
         if t["rebate_87a"]:
-            add(f"  Rebate u/s 87A            {_fmt(-t['rebate_87a']):>16}")
+            amount(f"Rebate s.{result['sections']['rebate']}", -t['rebate_87a'])
         if t["marginal_relief_87a"]:
-            add(f"  Marginal relief (87A)     {_fmt(-t['marginal_relief_87a']):>16}")
+            amount("Rebate marginal relief", -t['marginal_relief_87a'])
         if t["surcharge"]:
-            add(f"  Surcharge                 {_fmt(t['surcharge'] - t['surcharge_marginal_relief']):>16}")
-        add(f"  Cess (4%)                 {_fmt(t['cess']):>16}")
+            amount("Surcharge", t['surcharge'] - t['surcharge_marginal_relief'])
+        amount("Cess (4%)", t['cess'])
         if t.get("relief_89"):
-            add(f"  Relief u/s 89             {_fmt(-t['relief_89']):>16}")
-        add(f"  TOTAL TAX                 {_fmt(t['total_tax_liability']):>16}")
+            amount("Salary-arrears relief", -t['relief_89'])
+        amount("TOTAL TAX", t['total_tax_liability'])
+        if "advance_tax" in c:
+            plan = c["advance_tax"]
+            amount("Expected annual TDS/TCS", plan['expected_tds_tcs'])
+            amount("Annual advance-tax base", plan['net_advance_tax_liability'])
+            amount("Advance tax already paid", plan['advance_tax_paid'])
+            amount("Annual amount still unpaid", plan['annual_remaining'])
+            for s in plan["schedule"]:
+                amount(f"By {s['due_date']} ({s['cumulative_percent']}%)", s['cumulative_required'])
+            if plan["next_payment"]:
+                p = plan["next_payment"]
+                amount(f"NEXT PAYMENT {p['due_date']} ({rk} regime)", p['amount'])
+                add("  Payment type: " + p['kind'].replace('_', ' '))
+            else:
+                add("  No advance-tax instalment required on these estimates.")
+            for assumption in plan["assumptions"]:
+                add("  - " + assumption)
+            continue
         i = c["interest_and_fees"]
+        labels = dict(zip(("234A", "234B", "234C", "234F"),
+                          (result["sections"][s] for s in
+                           ("late_interest", "advance_interest", "deferment_interest", "late_fee"))))
         for k in ("234A", "234B", "234C", "234F"):
             if i[k]:
-                add(f"  Interest/fee {k}        {_fmt(i[k]):>16}")
-        add(f"  NET PAYABLE (-ve=refund)  {_fmt(i['final_payable_or_refund']):>16}")
+                descriptions = {"234A": "Late-return interest", "234B": "Advance-tax shortfall interest",
+                                "234C": "Instalment interest", "234F": "Late-filing fee"}
+                amount(f"{descriptions[k]} s.{labels[k]}", i[k])
+        amount("NET PAYABLE (-ve=refund)", i['final_payable_or_refund'])
     if "comparison" in result:
         cmp_ = result["comparison"]
         add("\n" + "=" * 64)
-        add(f"  RECOMMENDED: {cmp_['recommended_regime'].upper()} regime "
-            f"(saves Rs. {_fmt(cmp_['savings'])})")
+        if "belated" in cmp_["note"].lower() and cmp_["old_total"] < cmp_["new_total"]:
+            add("  RECOMMENDED: NEW regime (old-regime option unavailable for this belated return)")
+        else:
+            add(f"  RECOMMENDED: {cmp_['recommended_regime'].upper()} regime "
+                f"(saves Rs. {_fmt(cmp_['savings'])})")
         add(f"  New: {_fmt(cmp_['new_total'])}   Old: {_fmt(cmp_['old_total'])}")
+    if result["purpose"] == "advance_tax":
+        add("\nChoose ONE payment plan after confirming the regime you can legally use.")
+        add("A cheaper comparison does not establish eligibility to switch regimes.")
     warn = set(result.get("new", {}).get("warnings", []) + result.get("old", {}).get("warnings", []))
     if warn:
         add("\nNotes:")

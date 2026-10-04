@@ -2,9 +2,11 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "itr-wala",
   "displayName": "ITR Wala",
-  "version": "1.2.1",
-  "description": "File your Indian income tax return (ITR) from your terminal - deterministic tax engine, both regimes, AY 2026-27.",
-  "skills": ["./skills/itr-wala"],
+  "version": "1.3.0",
+  "description": "File FY 2025-26 Indian income tax returns or plan FY 2026-27 advance tax from your terminal. Tested Python computes every rupee.",
+  "skills": [
+    "./skills/itr-wala"
+  ],
   "author": {
     "name": "Karan Bansal",
     "url": "https://karanbansal.in"
@@ -12,5 +14,14 @@
   "homepage": "https://github.com/karanb192/itr-wala",
   "repository": "https://github.com/karanb192/itr-wala",
   "license": "MIT",
-  "keywords": ["itr", "india", "income-tax", "tax-filing", "form-16", "ais", "regime-comparison"]
+  "keywords": [
+    "itr",
+    "india",
+    "income-tax",
+    "tax-filing",
+    "form-16",
+    "ais",
+    "regime-comparison",
+    "advance-tax"
+  ]
 }

@@ -1,11 +1,18 @@
-# Deductions checklist - the proactive interview (FY 2025-26, AY 2026-27)
+# Deductions checklist for both supported income years
 
 When to read this: before building `income.json`, whenever the old regime is in play, or when the user asks "what can I claim?". Walk the checklist item by item - people overpay because nobody asked.
+
+The interview retains legacy 1961 Act section labels and stable JSON keys.
+For FY 2026-27, read [rates-fy2026-27.md](rates-fy2026-27.md) for legal
+counterparts. Verify any additional deduction/form under the selected Act
+before using it. Unsupported government NPS/Agniveer cases remain unsupported.
+For advance tax, user-approved eligible forecasts may be used with their basis
+recorded; a return still requires final proof.
 
 ## Ground rules
 
 1. **Never invent, inflate, or assume a deduction.** Goal is the lowest LEGAL tax. A claim needs a proof document the user actually has (or an entry already printed in Form 16 Part B - the employer verified proofs for those).
-2. **You do zero arithmetic.** You classify amounts into engine fields; `scripts/tax_engine.py` applies caps and computes. Exception: where the engine takes a pre-computed eligible amount (80D, 80G, `other`), apply the eligibility rules below and state your working to the user.
+2. **You do zero arithmetic.** Classify amounts; Python applies caps and computes. Where the engine accepts an already eligible amount (80D, 80G, `other`), get the documented computation or use a deterministic script and show its output for user approval. Never calculate it mentally or invent a total.
 3. **Two lists, two runs.** Items with proofs in hand go into `income.json` and drive the regime comparison. Items the user *probably* has but can't produce yet ("I think I paid LIC premium…") go into a separate "possible but unproven" list - run the engine a second time with them added and show the delta: "finding that proof would save another ₹X under the old regime." File only on the proven set.
 4. Chapter VI-A deductions do NOT reduce special-rate income (s.111A/112A/112 gains, VDA) - the engine enforces this. Don't promise 80C savings to someone whose income is mostly capital gains.
 
@@ -26,10 +33,10 @@ The new regime (s.115BAC, the default) kills almost every deduction. What surviv
 
 Ask about every row. For each "yes": get the amount, the proof, and map to the engine field. Employer-declared items appear in Form 16 Part B (Chapter VI-A breakup, and the s.10 exempt-allowance list for HRA/LTA) - extract from there first.
 
-| Section | Limit FY 2025-26 | What qualifies | Proof / where in Form 16 | Engine field |
+| Legacy section | Limit in supported years | What qualifies | Proof / where in Form 16 | Engine field |
 |---|---|---|---|---|
 | Standard deduction | 50,000 | salary/pension, automatic | none needed | applied by engine |
-| s.16(iii) professional tax | engine caps at 5,000 | tax on employment deducted by employer | Form 16 Part B s.16(iii) line | `income.salary.professional_tax` |
+| s.16(iii) professional tax | actual paid amount | tax on employment deducted by employer | year-specific salary certificate / payslips | `income.salary.professional_tax` |
 | 80C (aggregate with 80CCC + 80CCD(1)) | 1,50,000 | EPF **employee** share (Form 16 Part B VI-A / EPF passbook), PPF, ELSS, life-insurance premium, home-loan **principal**, children's tuition fees (tuition component only), NSC, 5-yr tax-saver FD, Sukanya Samriddhi | passbooks, premium receipts, lender principal certificate, fee receipts; usually pre-totalled in Form 16 Part B | `deductions.80c` (engine caps) |
 | 80CCD(1B) | 50,000 extra, over the 80C cap | own NPS contribution | NPS transaction statement; Form 16 Part B if routed via employer | `deductions.80ccd_1b` (engine caps) |
 | 80CCD(2) | **10%** of Basic+DA private / 14% govt - note the asymmetry: the 14%-for-everyone rate is NEW regime only | employer NPS contribution | Form 16 Part B VI-A | `deductions.80ccd_2` - engine applies the 10% old-regime cap; a govt employee entitled to 14% under old regime will be over-capped - flag and verify on the portal |

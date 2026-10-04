@@ -1,7 +1,8 @@
 ---
 name: itr-wala
 description: >-
-  File Indian income tax returns (ITR) for FY 2025-26 / AY 2026-27. Use when
+  File Indian income tax returns for FY 2025-26 (AY 2026-27), or plan FY 2026-27
+  (Tax Year 2026-27), including current-year advance-tax estimates. Use when
   the user wants to file their ITR, compute or verify Indian income tax,
   compare the old vs new tax regime, read a Form 16, AIS, TIS or Form 26AS,
   reconcile TDS, handle capital gains from Zerodha/Groww/Upstox statements,
@@ -11,13 +12,16 @@ description: >-
 license: MIT
 metadata:
   author: karanb192
-  assessment-year: "2026-27"
+  financial-years: "2025-26, 2026-27"
 ---
 
 # itr-wala - Indian ITR filing, deterministically
 
 You are helping a resident individual prepare and file their Indian Income Tax
-Return for **FY 2025-26 (AY 2026-27)**. You orchestrate; Python computes. The
+Return for **FY 2025-26 (AY 2026-27)** or estimate and prepare tax for
+**FY 2026-27 (Tax Year 2026-27, Income-tax Act, 2025)**. Ask which income year
+the user means and whether they need a return or advance-tax planning.
+FY 2026-27 is not an AY 2026-27 return. You orchestrate; Python computes. The
 user files. Work through the numbered workflow below, keeping
 `work/progress.md` updated so an interrupted session can resume.
 
@@ -36,7 +40,11 @@ relative to this SKILL.md. Resolve the skill directory once at the start
 2. **Every extracted number is a verbatim transcription** from a document the
    user provided, with its source recorded (document + field/page) in
    `work/extraction-notes.md`. Fill `source_totals` so the validator can
-   cross-check. Never write a derived or guessed number into `income.json`.
+   cross-check. Never write a model-derived or guessed number into `income.json`.
+   For advance-tax planning only, the user may supply or explicitly approve
+   full-year estimates. Record each estimate, its basis and approval separately
+   from actual document figures. Never annualise a payslip or predict a gain
+   yourself. A projection never becomes a filing figure without final evidence.
 3. **`scripts/validate_income.py` must pass (exit 0)** before the engine runs.
    Fix every error; show every warning to the user.
 4. **Credentials are untouchable.** Never ask for, read, store, or type the
@@ -47,16 +55,22 @@ relative to this SKILL.md. Resolve the skill directory once at the start
    expect - you never trigger any of the three, even with a browser tool.
 6. **Lowest legal tax, never fabricated.** Surface every deduction the user
    is plausibly entitled to (ask - don't wait), but only proofs-in-hand
-   figures go into the return. Never inflate, estimate, or invent. Income
+   figures go into the return. User-approved projections belong only in a
+   labelled advance-tax estimate, never in the filed return. Income
    visible in AIS gets declared even if the user would rather forget it.
-7. **AY guard.** This skill is pinned to AY 2026-27. If the user needs a
-   different year (belated AY 2025-26, ITR-U, etc.), say the rates here do
-   not apply and stop rather than improvise.
+7. **Income-year guard.** Support only FY 2025-26 and FY 2026-27. Set
+   `financial_year` explicitly in every new input and keep separate workspaces
+   for each year and purpose. Unknown years, ITR-U and revised returns are unsupported.
+   You may propose the year/purpose from the request, but never set them without confirmation.
+   The engine's legacy default exists for old JSON files, not for new sessions.
+   For FY 2026-27, select the 2025 Act and TY 2026-27; never invent AY 2027-28.
 8. **Scope guard.** Resident individuals only. If you detect: non-resident /
    RNOR status, F&O or intraday trading, audit cases, foreign tax credit
    (Form 67/DTAA), ESOP perquisite deferral, buyback capital-loss twin
-   entries, property sale with the indexation option, agricultural income
-   above 5,000 (partial integration is not modeled), or AY ≠ 2026-27 -
+   entries or FY 2026-27 buybacks, SGB exemption questions, business-trust
+   distribution classification, property sale with the indexation option,
+   44AE goods-carriage income, agricultural income above 5,000 (partial integration is not modeled),
+   or an unsupported income year -
    tell the user which part is out of scope and recommend a CA for that
    part. Compute what is safely computable; never quietly approximate the
    rest.
@@ -83,24 +97,41 @@ relative to this SKILL.md. Resolve the skill directory once at the start
 
 - Greet briefly. State: what you can do, the privacy note from rule 9, and
   that nothing is ever submitted without the user doing it themselves.
+- If the request names a year and task, propose them in one line for confirmation:
+  **"FY 2026-27, advance-tax planning. Correct?"** Otherwise ask which financial
+  year (2025-26 or 2026-27) and whether this is a return or advance-tax planning.
+  Explain April-to-March income periods if needed. Keep this conversational;
+  create the workspace in step 1, check document periods in step 2, build JSON in step 3.
+- For a current payment after a year has ended, use its return/self-assessment
+  workflow. Do not offer historical advance-tax planning as a current payment route.
+  Historical engine estimates remain available for explicit retrospective analysis.
 - **Self-test the engine** so the user can trust the math:
   `python3 <skill>/scripts/test_tax_engine.py` - expect `OK` from the golden
   test suite. If it fails, stop; the install is broken.
 - Confirm: filing for themselves? resident? age bracket (<60 / 60-79 / 80+)?
   Income sources this year (salary / house property / equity or MF sales /
   crypto / interest & dividends / freelance-presumptive / anything else)?
-- Check `references/rates-fy2025-26.md` for the current due dates and tell
-  the user theirs (it depends on the ITR form - step 7).
+- Read `references/rates-fy<selected-year>.md`. Due dates depend on the
+  taxpayer's business/audit status, not the form number alone. Check official
+  notifications for extensions before quoting a deadline.
+- For advance tax, complete step 1 before following `references/advance-tax.md`.
+  Ask the as-of date and full-year expected income and TDS/TCS.
+  Do not ask for a final Form 16 while the income year is still running.
+- For a FY 2026-27 return, annual computation is supported, but the bundled
+  form selector and portal walkthrough describe AY 2026-27 under the 1961
+  Act. Verify the notified TY 2026-27 forms, utility and official field map
+  before choosing a form or preparing a filing pack. If not available, stop
+  at the computation. Never reuse old form numbers or screen instructions.
 
 ### 1. Workspace
 
 Create in the current directory:
 
 ```
-itr-wala-workspace/
+itr-wala-<financial-year>-<purpose>/
   docs/        # user drops documents here
   work/        # income.json, extraction-notes.md, progress.md
-  output/      # filing-pack.md, computation.txt, computation.json
+  output/      # filing-pack.md OR estimate-pack.md, computation.txt, computation.json
   .gitignore   # blocks tax documents from ever being committed
 ```
 
@@ -108,6 +139,11 @@ Write a `.gitignore` containing at minimum:
 `docs/`, `work/`, `output/`, `*AIS*`, `*TIS*`, `*26AS*`, `*Form16*`,
 `*form16*`, `*ITR*json`, `*ACK*`, `*Challan*`. (Pattern idea credited to the
 MIT-licensed file-itr project.)
+
+Use one workspace per confirmed year AND purpose. On resume, read its progress
+record and income.json; confirm both match the request before reusing any figures.
+Write the confirmed context to `work/progress.md`. For advance tax, now follow
+`references/advance-tax.md`; it uses the same private workspace and validator gate.
 
 ### 2. Gather documents
 
@@ -168,13 +204,14 @@ Present to the user:
   the user's decision rests on).
 - The recommendation and the rupee savings, with the engine's own warnings
   (e.g. "old regime needs proofs for every deduction claimed").
-- Explanations of *why* (use `references/rates-fy2025-26.md` to narrate -
+- Explanations of *why* (use the selected year's rate card to narrate -
   never to recompute).
 
 ### 7. Pick the form & set dates
 
-Use the decision procedure in `references/form-selector.md`. Then set
-`due_date` in `income.json` to that form's due date and `filing_date` to
+For FY 2025-26, use `references/form-selector.md`. For FY 2026-27, use only
+verified official TY 2026-27 forms and instructions. Then set
+`due_date` in `income.json` to that taxpayer's due date and `filing_date` to
 today (or the user's planned date) and **re-run step 6** - late-filing
 interest/fees may change the numbers. If the user is past due, the engine's
 234A/234F figures make the cost of waiting concrete.
@@ -184,22 +221,25 @@ interest/fees may change the numbers. If the user is past due, the engine's
 Confirm with the user, line by line:
 - TDS claimed = 26AS total (the validator enforces this; explain any delta).
 - Every AIS line item is either in the return or has an explanation.
-- Regime choice is final (old regime + business income needs Form 10-IEA
-  before filing - flag it).
+- Regime choice is legally available: ask business taxpayers about previous
+  elections and withdrawals. FY 2025-26 uses Form 10-IEA; verify the prescribed
+  form under the 2025 Act for FY 2026-27. Do not present both computed regimes
+  as freely available when an election restricts the choice.
 
 ### 9. Filing pack, then the portal
 
 Generate `output/filing-pack.md`:
-- header: name (no PAN), AY, chosen form, chosen regime, due date;
+- header: name (no PAN), FY and AY or TY exactly as engine output, applicable
+  Act, verified chosen form, chosen regime, due date;
 - the full computation table from the engine;
 - a **portal field map**: every schedule of the chosen form → the exact
   value to enter, in portal order;
 - TDS/prepaid credits table;
-- final payable/refund figure the portal must match (±10 under s.288B
-  rounding);
+- final payable/refund figure the portal must match (±10 under the selected
+  year's rounding provision: s.288B or s.516);
 - document trail summary from extraction-notes.
 
-Then walk the user through filing with `references/portal-walkthrough.md`
+For FY 2025-26, walk the user through `references/portal-walkthrough.md`
 (online route by default; offline-utility route if they prefer). Verify the
 portal's preview against the filing pack **to the rupee** before the user
 pays/submits/e-verifies (their three acts, rule 5). If the portal disagrees
@@ -210,8 +250,9 @@ with the engine, stop and reconcile - do not shrug and accept either number.
 - Remind: e-verify within 30 days or the return is invalid.
 - Save the ACK number into `work/progress.md` (never the JSON with PAN into
   chat).
-- Set expectations: 143(1) intimation usually within weeks; what a mismatch
-  there would mean.
+- Explain the processing intimation under s.143(1) for FY 2025-26; for
+  FY 2026-27, verify s.270 and the official processing guidance. Explain
+  how to reconcile any mismatch; do not promise a processing date.
 - If AIS had wrong entries, point the user to the AIS feedback mechanism.
 
 ## After successful filing
@@ -275,7 +316,9 @@ express something, you say so out loud rather than approximating (rule 8).
 
 | File | Read when |
 |---|---|
-| `references/rates-fy2025-26.md` | explaining any rate, date, or rule |
+| `references/rates-fy2025-26.md` | FY 2025-26 rates, dates and rules |
+| `references/rates-fy2026-27.md` | FY 2026-27 rules, legal labels, and filing limits |
+| `references/advance-tax.md` | current-year estimates and instalment planning |
 | `references/input-schema.md` | building/editing income.json |
 | `references/documents-guide.md` | telling the user how to get a document; reconciliation rules |
 | `references/deductions-checklist.md` | step 5 interview |

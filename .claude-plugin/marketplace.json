@@ -11,10 +11,16 @@
   "plugins": [
     {
       "name": "itr-wala",
-      "description": "File your Indian ITR (AY 2026-27): reads Form 16/AIS, deterministic tax engine for both regimes, reconciles TDS, walks you through the e-filing portal. You always pay/submit/e-verify yourself.",
+      "description": "FY 2025-26 returns and FY 2026-27 tax preparation: reads documents, compares regimes, reconciles TDS and plans advance tax. You always pay, submit and e-verify yourself.",
       "source": "./",
       "category": "productivity",
-      "tags": ["india", "tax", "itr", "finance"]
+      "tags": [
+        "india",
+        "tax",
+        "itr",
+        "finance",
+        "advance-tax"
+      ]
     }
   ]
 }

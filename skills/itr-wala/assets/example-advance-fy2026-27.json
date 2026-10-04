@@ -1,0 +1,21 @@
+{
+  "name": "Example Estimator (fictional)",
+  "financial_year": "2026-27",
+  "purpose": "advance_tax",
+  "as_of_date": "2026-12-10",
+  "regime": "both",
+  "age_category": "regular",
+  "residential_status": "resident",
+  "income": {
+    "other_sources": {"other": 2000000}
+  },
+  "expected_tax_credits": {"tds": 8000, "tcs": 0},
+  "taxes_paid": {
+    "tds": 4000,
+    "advance_tax": [
+      {"date": "2026-06-15", "amount": 30000},
+      {"date": "2026-09-15", "amount": 60000}
+    ]
+  },
+  "source_totals": {"form26as_total_tds": 4000}
+}

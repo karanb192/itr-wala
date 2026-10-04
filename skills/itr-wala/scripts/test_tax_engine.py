@@ -723,6 +723,15 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
 
 
 class TestReviewRegressions(unittest.TestCase):
+    def test_lost_rebate_also_increases_surcharge(self):
+        # Slab tax 60,000 + VDA tax 18,000,000; 25% surcharge and 4% cess.
+        for fy, filing in (("2025-26", "2026-07-20"), ("2026-27", "2027-07-20")):
+            r = compute({"financial_year": fy, "filing_date": filing, "regime": "new",
+                         "income": {"salary": {"gross": 1_275_000},
+                                    "capital_gains": {"vda": 60_000_000}}})
+            self.assertEqual(new_liab(r), 23_478_000)
+            self.assertEqual(r["new"]["tax"]["rebate_87a"], 0)
+
     def test_year_end_top_up_rounds_remaining_balance_once(self):
         r = compute({"financial_year": "2026-27", "purpose": "advance_tax", "regime": "old",
                      "as_of_date": "2027-03-31", "expected_tax_credits": {"tds": 759_336},

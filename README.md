@@ -62,8 +62,9 @@ also distinguishes these two legal years.
 ## Existing-user calculation correction
 
 Engine 1.2.0 could understate FY 2025-26 new-regime tax when special-rate income
-pushed total income above ₹12 lakh. The correction can add up to ₹62,400 before
-any resulting interest. If you relied on that engine, recompute and compare with
+pushed total income above ₹12 lakh. The correction adds ₹62,400 in the illustrated
+no-surcharge case and more when surcharge applies, before any resulting interest.
+If you relied on that engine, recompute and compare with
 your filed return and any processing intimation. See the [affected-input examples
 and next steps](docs/rebate-correction.md). A model-independent engine can still
 contain bugs; the tests do not replace review.
@@ -85,7 +86,7 @@ itr-wala splits the work the way it should be split:
 
 The math is defended in three layers, all shipped in the repo and run in CI on every commit:
 
-1. **83 tax tests** with hand-derived rupee expectations: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
+1. **84 tax tests** with hand-derived rupee expectations: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
 2. **127 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
 3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. A fresh 360,000-case sweep (90,000 per combination, seed 42) passed on the revised engine. The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
 

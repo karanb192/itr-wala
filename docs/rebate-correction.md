@@ -2,7 +2,8 @@
 
 Engine 1.2.0 checked the new-regime ₹12 lakh rebate limit against slab-rate
 income alone. It should have included special-rate income in total income.
-The correction can increase annual tax by up to ₹62,400, before any resulting
+The correction increases annual tax by ₹62,400 in the no-surcharge example below;
+the difference can be larger when surcharge applies, before any resulting
 interest. It does not mean every user or every filed return was affected.
 
 ## Check whether this affects your computation
@@ -24,8 +25,13 @@ income shown. Amounts are annual tax including cess, excluding interest and fees
 | Equity STCG ₹20,000 | ₹4,160 | ₹20,800 | ₹16,640 |
 | VDA gain ₹1,00,000 | ₹31,200 | ₹93,600 | ₹62,400 |
 | Winnings ₹50,000 | ₹15,600 | ₹52,000 | ₹36,400 |
+| Equity LTCG ₹50,00,000 | ₹6,97,130 | ₹7,65,770 | ₹68,640 |
+| VDA gain ₹6,00,00,000 | ₹2,34,00,000 | ₹2,34,78,000 | ₹78,000 |
 
-The ₹62,400 example is the lost ₹60,000 rebate plus 4% cess. The statutory
+The ₹62,400 example is the lost ₹60,000 rebate plus 4% cess. Surcharge makes
+that difference ₹68,640 at 10% or ₹78,000 at 25% in the examples above. These
+are reproduced examples, not a ceiling on the total bill including interest.
+The statutory
 total-income test and restriction to slab-rate tax are in
 [Finance Act 2025 s.20](https://egazette.gov.in/WriteReadData/2025/262125.pdf).
 The [regression tests](../skills/itr-wala/scripts/test_tax_engine.py) cover the

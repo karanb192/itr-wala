@@ -87,5 +87,5 @@ AIS/26AS keep filling in after year-end - Q4 TDS filings land after May 31, and 
 6. Wrong ITR form (e.g. ITR-1 with STCG or foreign assets) → defective-return notice u/s 139(9).
 7. Bank account not pre-validated / PAN-Aadhaar-bank name mismatch → refund failure.
 8. Filing from stale prefill/AIS downloaded early in the season (see Timing above).
-9. Forgetting e-verification - 30-day window after submission, else the return is invalid.
+9. Forgetting e-verification: verify within 30 days to preserve the upload date. After that, the verification date becomes the filing date, with applicable late-filing consequences. A return never verified is invalid. [Official verification FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/itr-v-faqs30-days-timeline-e-verification-returns-faq).
 10. Capital-gains rate-period errors: mixing pre/post 23-Jul-2024 rate logic, missing the 1,25,000 s.112A exemption aggregation across brokers, or missing the buyback deemed-dividend + capital-loss twin entries.

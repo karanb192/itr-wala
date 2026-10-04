@@ -631,6 +631,44 @@ class TestMalformedShapes(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestCLI(TempFileMixin, unittest.TestCase):
+    def test_explicit_date_survives_future_cli_clock(self):
+        path = self.write("warn.json", {"financial_year": "2025-26", "filing_date": "2026-07-20"})
+        source = """import sys
+from datetime import date
+sys.path.insert(0, sys.argv.pop(1))
+import tax_years, validate_income
+class FutureDate(date):
+    @classmethod
+    def today(cls): return cls(2027, 1, 5)
+tax_years.date = validate_income.date = FutureDate
+sys.exit(validate_income.main(sys.argv))
+"""
+        r = subprocess.run([sys.executable, "-c", source, SCRIPT_DIR, path], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_planning_payment_errors_exit_2_without_traceback(self):
+        for extra in ({"advance_tax": [{"date": "2026-12-11", "amount": 100}]},
+                      {"self_assessment": [{"date": "2026-12-10", "amount": 100}]}):
+            inp = {"financial_year": "2026-27", "purpose": "advance_tax", "as_of_date": "2026-12-10",
+                   "income": {"other_sources": {"other": 2_000_000}}, "taxes_paid": extra}
+            r = run_cli(ENGINE, self.write("plan.json", inp))
+            self.assertEqual(r.returncode, 2)
+            self.assertNotIn("Traceback", r.stderr)
+
+    def test_context_type_errors_are_not_duplicated(self):
+        for inp, field in (({"financial_year": 2026}, "financial_year"),
+                           ({"income": {"presumptive_section": 44}}, "income.presumptive_section")):
+            errors, _ = check(inp)
+            self.assertEqual(len(errors), 1, errors)
+            self.assertIn(field + ": must be a string", errors[0])
+
+    def test_presumptive_44ae_and_new_year_self_occupied_label(self):
+        errors, _ = check({"income": {"business_presumptive_income": 100_000, "presumptive_section": "44AE"}})
+        self.assertTrue(has(errors, "44AE is unsupported"))
+        errors, _ = check({"financial_year": "2026-27", "filing_date": "2027-07-20",
+                           "income": {"house_property": [{"type": "self_occupied"}] * 3}})
+        self.assertTrue(has(errors, "s.21(7)"))
+
     def test_no_args_prints_usage_exit_0(self):
         r = run_cli(VALIDATOR)
         self.assertEqual(r.returncode, 0)
@@ -648,7 +686,7 @@ class TestCLI(TempFileMixin, unittest.TestCase):
         self.assertIn("0 error(s)", r.stdout)
 
     def test_warnings_only_exits_0(self):
-        path = self.write("warn.json", {})
+        path = self.write("warn.json", {"financial_year": "2025-26", "filing_date": "2026-07-20"})
         r = run_cli(VALIDATOR, path)
         self.assertEqual(r.returncode, 0)
         self.assertIn("WARNING", r.stdout)

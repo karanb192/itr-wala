@@ -1,4 +1,4 @@
-# Advance tax for either supported financial year
+# Advance tax for FY 2026-27
 
 Read after confirming `financial_year` and `purpose: "advance_tax"` and completing
 SKILL step 1, including the year/purpose workspace and .gitignore. This estimates
@@ -34,8 +34,10 @@ Source: [department tax-payment FAQ](https://www.incometax.gov.in/iec/foportal/h
    withholding under old s.209 / new s.405.
 5. Confirm presumptive eligibility: old 44AD/44ADA or new s.58(2), Table 1/3.
    Set `income.presumptive_section` to `44AD` or `44ADA` (stable identifiers for
-   both years) and enter declared income, not turnover. Without that identifier
-   the engine uses quarterly targets and warns. 44AE is unsupported. Ask about
+   both years) and enter positive declared income, not turnover. A label with zero
+   or absent presumptive income is rejected. Without the identifier, the engine
+   uses quarterly targets and warns, except legacy FY 2025-26 presumptive-only
+   files, which retain their single March instalment. 44AE is unsupported. Ask about
    business regime elections and withdrawals before comparing payment plans.
 
 ## Input and computation
@@ -50,7 +52,11 @@ modes. Save `output/computation.txt` and `output/computation.json`. Restate engi
 figures verbatim. Review annual tax, credits, payments, dates and both regimes.
 Confirm which regime the user can legally use and identify ONE payment plan;
 the other is a comparison. A cheaper calculation does not establish eligibility
-to change regimes.
+to change regimes. When both are legally available, present the recommended
+regime's plan unless the user chooses the other one. Before a planned sale, warn
+that special-rate gains can reduce the new-regime rebate or marginal relief when
+total income exceeds ₹12 lakh. Recompute a user-approved scenario before the sale;
+do not predict gains. See [the rebate correction](../../../docs/rebate-correction.md).
 
 Standard cumulative targets are 15%, 45%, 75%, 100% by 15 June, 15 September,
 15 December and 15 March. Eligible presumptive taxpayers use one 100% March
@@ -59,15 +65,21 @@ Resident seniors without business/professional income are exempt under s.403(3)
 of the 2025 Act, not s.404. Section 404 sets the ₹10,000 threshold, s.405 governs
 credits and s.408 the schedule.
 Sources: [old advance-tax guidance](https://incometaxindia.gov.in/Tutorials/31.%20Provisions%20on%20pymt%20of%20adv.%20tax.pdf),
-[amended 2025 Act](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf).
+[amended 2025 Act](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf),
+[2025 Act Gazette, ss.403/408](https://egazette.gov.in/WriteReadData/2025/265620.pdf),
+[1961 Act ss.211/234C explained by CBDT, paragraph 72](https://www.incometaxindia.gov.in/documents/20117/6507196/Circular2_2018.pdf/61ce9ca1-09f6-df86-d049-0ded12a4ee08?t=1762868291859).
+Portal/CPC instalment-interest calculations for presumptive plus other income
+have not been checked.
 
 The plan includes surcharge and cess but excludes future filing fees, historical
 interest assessment and refunds. `shortfall_at_deadline` compares a target with
 payments by its deadline; `paid_to_date` and `outstanding_now` include later payments
 through the as-of date. The next payment skips covered targets and is absent when
 fully paid. After 15 March, an unpaid balance is labelled a 31 March top-up.
-This does not cure missed-instalment interest. Capital-gain/dividend timing can
-change that interest; use dated evidence and the official computation or a CA.
+This does not cure missed-instalment interest. The engine does not model the
+s.234C / s.425 exception for capital gains or dividends received during the year,
+so instalment interest can be overstated. Use dated evidence and the official
+computation or a CA.
 
 ## Handoff and revisit
 

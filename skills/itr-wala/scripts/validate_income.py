@@ -22,7 +22,7 @@ import re
 import sys
 from datetime import date
 
-from tax_years import context_errors, fy_dates, year_rules
+from tax_years import context_errors, fy_dates, year_rules, section
 
 if sys.version_info < (3, 9):
     sys.exit("itr-wala needs Python 3.9 or newer (found %d.%d)." % sys.version_info[:2])
@@ -162,7 +162,9 @@ def check(inp, raw="", today=None):
                     errors.append(f"{path}{key}: must be a list")
 
     walk(inp, SCHEMA, "")
-    errors.extend(context_errors(inp, today))
+    if not any(e.endswith("must be a string") and e.split(":")[0] in
+               ("financial_year", "income.presumptive_section") for e in errors):
+        errors.extend(context_errors(inp, today))
     try:
         rules = year_rules(inp)
     except ValueError:
@@ -194,9 +196,9 @@ def check(inp, raw="", today=None):
     sop_count = sum(1 for p in _lst(_dct(inp.get("income")).get("house_property"))
                     if isinstance(p, dict) and p.get("type") == "self_occupied")
     if sop_count > 2:
-        section = "21(7)" if rules and rules["tax_year"] else "23(4)"
+        label = section(inp, "self_occupied_limit") if rules else "the selected Act"
         errors.append(f"income.house_property: {sop_count} self-occupied properties - "
-                      f"s.{section} allows at most TWO; every additional house is deemed "
+                      f"{label} allows at most TWO; every additional house is deemed "
                       "let-out and taxed on expected rent. Mark the extras 'let_out' "
                       "with the expected rent (from the documents) as rent_received.")
     for field in ("advance_tax", "self_assessment"):
@@ -255,7 +257,8 @@ def check(inp, raw="", today=None):
     business = inc.get("business_presumptive_income", 0)
     if _is_num(business) and business > 0 and not inc.get("presumptive_section"):
         warnings.append("Confirm presumptive eligibility and set income.presumptive_section "
-                        "to 44AD or 44ADA; until then the engine uses quarterly instalments. "
+                        "to 44AD or 44ADA. Legacy FY 2025-26 presumptive-only files retain "
+                        "one March instalment; other unlabeled files use quarterly instalments. "
                         "44AE is unsupported.")
     ptax = sal.get("professional_tax", 0)
     if _is_num(ptax) and ptax > 2_500:

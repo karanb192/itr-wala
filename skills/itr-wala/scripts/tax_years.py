@@ -1,6 +1,7 @@
 """Supported income years and their statutory dates, independent of the clock."""
 
 import re
+import math
 from datetime import date
 
 
@@ -26,7 +27,7 @@ YEARS = {
 REFERENCES = {
     "2025-26": {
         "professional_tax": "16(iii)", "home_loan_cap": "24(b)",
-        "home_loan": "24(b)", "rental_deduction": "24(a)",
+        "home_loan": "24(b)", "rental_deduction": "23(1), proviso", "self_occupied_limit": "23(4)",
         "hp_loss_cap": "71(3A)", "loss_setoff": "71", "family_pension": "57(iia)",
         "employer_nps": "80CCD(2)", "savings": "80C", "property_cap": "112(1)(a), second proviso",
         "stcg": "111A", "equity_ltcg": "112A", "other_ltcg": "112",
@@ -36,7 +37,7 @@ REFERENCES = {
     },
     "2026-27": {
         "professional_tax": "19(1), Table 1", "home_loan_cap": "22(2)",
-        "home_loan": "22(1)(b)", "rental_deduction": "22(1)(a)",
+        "home_loan": "22(1)(b)", "rental_deduction": "21(3)", "self_occupied_limit": "21(7)",
         "hp_loss_cap": "109(1)(b)", "loss_setoff": "109", "family_pension": "93(1)(d)",
         "employer_nps": "124(1)/(2)", "savings": "123", "property_cap": "197(3)",
         "stcg": "196", "equity_ltcg": "198", "other_ltcg": "197",
@@ -84,7 +85,18 @@ def effective_filing_date(inp, today=None):
 
 
 def single_presumptive_instalment(inp):
-    return inp.get("income", {}).get("presumptive_section") in ("44AD", "44ADA")
+    income = inp.get("income", {})
+    business = income.get("business_presumptive_income", 0)
+    if not isinstance(business, (int, float)) or isinstance(business, bool) or not math.isfinite(business) or business <= 0:
+        return False
+    if "presumptive_section" in income:
+        return income["presumptive_section"] in ("44AD", "44ADA")
+    # Legacy FY 2025-26 files defined this field as eligible 44AD/44ADA income.
+    other_income = (income.get("salary", {}).get("gross", 0)
+                    + sum(income.get("capital_gains", {}).values())
+                    + sum(income.get("other_sources", {}).values())
+                    + sum(p.get("rent_received", 0) for p in income.get("house_property", [])))
+    return inp.get("financial_year", "2025-26") == "2025-26" and other_income == 0
 
 
 def context_errors(inp, today=None):
@@ -99,7 +111,11 @@ def context_errors(inp, today=None):
     income = inp.get("income")
     if isinstance(income, dict) and "presumptive_section" in income:
         if income["presumptive_section"] not in ("44AD", "44ADA"):
-            errors.append("presumptive_section must be '44AD' or '44ADA' (stable identifiers for both years); 44AE is unsupported")
+            errors.append("income.presumptive_section: must be '44AD' or '44ADA' (stable identifiers for both years); 44AE is unsupported")
+        else:
+            business = income.get("business_presumptive_income", 0)
+            if not isinstance(business, (int, float)) or isinstance(business, bool) or not math.isfinite(business) or business <= 0:
+                errors.append("income.presumptive_section: requires positive business_presumptive_income; omit the section for salary-only or other non-business income")
     if purpose == "advance_tax":
         if "financial_year" not in inp:
             errors.append("financial_year is required for advance-tax planning")
@@ -123,22 +139,24 @@ def context_errors(inp, today=None):
                 errors.append(field + " is only allowed with purpose 'advance_tax'")
         for field in ("due_date", "filing_date"):
             raw = inp.get(field)
+            prefix = field + ": "
             if raw is None:
                 if field != "filing_date":
                     continue
                 raw = (today or date.today()).isoformat()
+                prefix = f"filing_date not provided; defaulted to today ({raw}): "
             if not isinstance(raw, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
                 errors.append(field + ": must be YYYY-MM-DD")
                 continue
             try:
                 d = date.fromisoformat(raw)
                 if d <= fy_dates(rules)[1]:
-                    errors.append(field + ": must be after the selected income year; "
+                    errors.append(prefix + "must be after the selected income year; "
                                   "use purpose 'advance_tax' for current-year estimates")
                 elif field == "due_date" and d > date(rules["start_year"] + 2, 3, 31):
                     errors.append("due_date: does not belong to the selected income year")
                 elif field == "filing_date" and d > date(rules["start_year"] + 1, 12, 31):
-                    errors.append("filing_date: the normal belated-return window has closed; "
+                    errors.append(prefix + "the normal belated-return window has closed; "
                                   "an updated return may be available, but this workflow does not support it")
             except ValueError:
                 errors.append(field + ": must be a real YYYY-MM-DD date")

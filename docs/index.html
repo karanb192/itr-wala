@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>itr-wala · File your Indian ITR from the terminal, every rupee computed by tested code</title>
-<meta name="description" content="FY 2025-26 returns and FY 2026-27 tax and advance-payment planning. Tested Python computes every rupee. 84 tax tests, 127 validator tests, both years in CI. You alone pay, submit and e-verify.">
+<meta name="description" content="FY 2025-26 returns and FY 2026-27 tax and advance-payment planning. Tested Python computes every rupee. 88 tax tests, 131 validator tests, both years in CI. You alone pay, submit and e-verify.">
 <meta name="author" content="Karan Bansal">
 <link rel="canonical" href="https://itr-wala.karanbansal.in/">
 
@@ -151,16 +151,7 @@ h1 .accent { color: var(--teal); }
   font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
   color: var(--term-ink); line-height: 1.75;
 }
-.term-bar { display: flex; gap: 6px; padding: 12px 14px; background: rgba(255,255,255,0.05); }
-.term-bar i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.16); }
-.term-body { padding: 18px 20px 22px; overflow-x: auto; }
-.term-body .p { color: #7fa39c; }
-.term-body .ok { color: #5fd38a; font-weight: 700; }
-.term-body .num { color: #ffffff; }
-.term-body .dim { color: #7fa39c; }
-.term-body .hd { color: #a7c4be; }
 .term-rule { border: 0; border-top: 1px solid rgba(255,255,255,0.14); margin: 10px 0; }
-.term-row { display: flex; justify-content: space-between; gap: 24px; white-space: nowrap; }
 .save { color: #5fd38a; font-weight: 700; }
 
 /* section titles */
@@ -227,12 +218,6 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
 
 /* motion: one orchestrated reveal */
 @media (prefers-reduced-motion: no-preference) {
-  .term-body > div { opacity: 0; animation: rise 0.5s ease forwards; }
-  .term-body > div:nth-child(1) { animation-delay: 0.15s; }
-  .term-body > div:nth-child(2) { animation-delay: 0.45s; }
-  .term-body > div:nth-child(3) { animation-delay: 0.75s; }
-  .term-body > div:nth-child(4) { animation-delay: 1.0s; }
-  .term-body > div:nth-child(5) { animation-delay: 1.25s; }
   @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 }
 
@@ -284,14 +269,14 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
       </div>
     </div>
     <figure class="term" aria-label="Selected lines from the bundled example">
-      <figcaption style="padding:16px 20px">Bundled FY 2025-26 example: selected engine output</figcaption>
-      <pre style="margin:0;padding:0 20px 20px;white-space:pre-line;overflow-wrap:anywhere;font-size:13px;line-height:1.7">[NEW REGIME]
+      <pre style="margin:0;padding:20px;white-space:pre;overflow-x:auto;font-size:13px;line-height:1.7">[NEW REGIME]
   Total income                                          25,06,700
   NET PAYABLE (-ve=refund)                                    720
 [OLD REGIME]
   Total income                                          18,74,300
   NET PAYABLE (-ve=refund)                                 43,530
   RECOMMENDED: NEW regime (saves Rs. 42,811)</pre>
+      <figcaption style="padding:16px 20px">Selected lines from the bundled FY 2025-26 example. Reproduce from the repository:<br><code style="overflow-wrap:anywhere">python3 skills/itr-wala/scripts/tax_engine.py skills/itr-wala/assets/example-income.json</code></figcaption>
     </figure>
   </div>
 </section>
@@ -321,12 +306,12 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
       </div>
     </div>
     <div class="receipts">
-      <div class="receipt"><div class="n">84</div><div class="l">tax tests with hand-derived rupee expectations and both-year coverage</div></div>
-      <div class="receipt"><div class="n">127</div><div class="l">validator tests rejecting wrong-year, malformed or PAN-bearing inputs</div></div>
+      <div class="receipt"><div class="n">88</div><div class="l">tax tests with hand-derived rupee expectations and both-year coverage</div></div>
+      <div class="receipt"><div class="n">131</div><div class="l">validator tests rejecting wrong-year, malformed or PAN-bearing inputs</div></div>
       <div class="receipt"><div class="n">360k</div><div class="l">fresh seeded cases across both years and purposes; 12k per Python version in CI</div></div>
       <div class="receipt"><div class="n">0</div><div class="l">pip installs: stdlib Python 3.9+, runs entirely on your machine</div></div>
     </div>
-    <p class="bugstory"><strong>Used engine 1.2.0?</strong> A rebate bug could understate tax when special-rate income pushed total income above ₹12 lakh. <a href="https://github.com/karanb192/itr-wala/blob/main/docs/rebate-correction.md">Check the affected examples and next steps</a>.</p>
+    <p class="bugstory"><strong>Used itr-wala before 1.3.0?</strong> Plugins 1.2.0 and 1.2.1 and older clone/skills.sh installs are affected. For FY 2025-26 new-regime computations, recheck special-rate gains or winnings when total income exceeded ₹12 lakh and the old output granted rebate or marginal relief, including slab income above ₹12 lakh. Old computation JSON identifies the engine as 1.2.0. <a href="https://github.com/karanb192/itr-wala/blob/main/docs/rebate-correction.md">Check the affected examples and next steps</a>.</p>
     <p class="bugstory"><strong>These layers catch real bugs.</strong> The fuzzer found a one-in-350,000 rounding edge where ₹52,880 more salary computed ₹10 less tax. Fixed, pinned as a regression test. That find-fix-pin loop is the thing a prompt-only tax tool cannot run. <strong>If your CA can show you their test suite, hire them.</strong></p>
   </div>
 </section>

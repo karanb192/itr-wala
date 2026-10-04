@@ -26,7 +26,7 @@ computation. See [rates-fy2026-27.md](rates-fy2026-27.md).
 6. **STOP - handoff**. The user alone performs the three final acts:
    - **Pay**: if tax is payable, "Pay Now" (e-Pay Tax). After payment, verify the challan (BSR code, date, serial no., amount) landed in Schedule IT, re-confirm Taxes Paid, and check Part B-TTI "Amount payable" is Rs 0 (few-rupee 288B gap is fine).
    - **Submit**: the user clicks the final submit/verification button.
-   - **e-Verify**: within **30 days** of submission, else the return is invalid. Aadhaar OTP (mobile linked to Aadhaar) is usually the fastest option; net-banking/bank-EVC also work. Tell the user the deadline explicitly.
+   - **e-Verify**: within **30 days** to preserve the upload date. Verification after 30 days becomes the filing date and attracts applicable late-filing consequences. A return never verified is invalid. Aadhaar OTP (mobile linked to Aadhaar) is usually the fastest option; net-banking/bank-EVC also work. Tell the user the deadline explicitly.
 
 ## Route B - Offline utility + JSON upload
 
@@ -64,7 +64,7 @@ Fix, re-validate, repeat until 0 errors. Never suppress a defect by inventing a 
 ## Post-filing
 
 - **Acknowledgement**: after submission, have the user download the ITR-V / acknowledgement (ACK number) from e-File -> Income Tax Returns -> View Filed Returns. Save it with the filing pack.
-- **e-verification confirmation**: confirm status shows "Successfully e-Verified". If skipped, remind again - the 30-day clock is running; an unverified return is treated as not filed.
+- **e-verification confirmation**: confirm status shows "Successfully e-Verified". If pending, remind the user of the 30-day window. Late verification changes the filing date; a return never verified is invalid. For a belated return, recommend submitting and verifying by 31 December 2026. [Official verification FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/itr-v-faqs30-days-timeline-e-verification-returns-faq).
 - **s.143(1) intimation**: CPC will process the return and email an intimation comparing the filed figures with its computation. If our numbers were verified to the rupee at preview, expect "no demand, no refund" or the computed refund. A mismatch there usually means a TDS-credit mismatch (26AS vs claimed) or a CPC adjustment - reconcile the intimation line-by-line against the engine output before the user pays any demand or accepts a reduced refund; a wrong demand can be contested (rectification u/s 154 or revised return).
 - **Missed or wrong filing - deadlines (AY 2026-27)**. Re-check [the rate card](rates-fy2025-26.md) and [official updates](https://www.incometax.gov.in/iec/foportal/latest-news):
   - Original non-audit due dates: 31 July 2026 without business/profession; 31 August 2026 with business/profession. Verify taxpayer status rather than choosing a date from the form number.

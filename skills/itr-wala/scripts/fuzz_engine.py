@@ -11,9 +11,9 @@ resident-individual computation:
   3  Rounding: total_income and total_tax_liability are non-negative
      multiples of 10 (s.288A/288B); final_payable_or_refund is a multiple
      of 10.
-  4  Bounds: 87A rebate <= 60,000 (new) / 12,500 (old); 234A/B/C/F >= 0;
+  4  Bounds: rebate (s.87A / s.156) <= 60,000 (new) / 12,500 (old); interest >= 0;
      234F in {0, 1000, 5000}; surcharge marginal relief <= surcharge;
-     87A rebate and 87A marginal relief never both positive.
+     rebate and its marginal relief never both positive.
   5  Cess equals 4% of (tax_after_rebate + surcharge - relief) within 1 rupee.
   6  total_tax_liability reconciles with its components within 10 rupees.
   7  Regime comparison: savings == |new - old| and the recommendation is
@@ -26,6 +26,7 @@ resident-individual computation:
      5,00,000 87A rebate cliff is statutory).
   9  Advance-tax credits, eligibility, statutory schedule, dated payments and
      next unpaid target reconcile independently with the input.
+ 10  A presumptive label without positive presumptive income is rejected.
 
 Zero dependencies (Python 3.9+ stdlib). Fully deterministic for a given
 --seed: every random draw flows from one random.Random(seed).
@@ -60,7 +61,7 @@ from tax_years import YEARS
 # Boundary-biased generators
 # ---------------------------------------------------------------------------
 
-# Rupee points where FY 2025-26 rules bend: slab edges, 87A thresholds,
+# Rupee points where both supported years' rules bend: slabs, rebate thresholds,
 # the 112A exemption, basic exemptions, surcharge tiers.
 MAGIC_AMOUNTS = [
     0, 1,
@@ -203,7 +204,7 @@ def gen_case(rng, financial_year="2025-26", purpose="return"):
 
     if rng.random() < 0.2:
         income["business_presumptive_income"] = rand_amount(rng)
-        if rng.random() < 0.8:
+        if income["business_presumptive_income"] > 0 and rng.random() < 0.8:
             income["presumptive_section"] = rng.choice(("44AD", "44ADA"))
     if income or rng.random() < 0.5:
         inp["income"] = income
@@ -302,7 +303,13 @@ def advance_plan_errors(inp, liability, plan):
     y = int(inp["financial_year"][:4])
     dates = [(f"{y}-06-15", 15), (f"{y}-09-15", 45),
              (f"{y}-12-15", 75), (f"{y + 1}-03-15", 100)]
-    if income.get("presumptive_section") in ("44AD", "44ADA"):
+    non_business = (income.get("salary", {}).get("gross", 0)
+                    + sum(income.get("capital_gains", {}).values())
+                    + sum(income.get("other_sources", {}).values())
+                    + sum(p.get("rent_received", 0) for p in income.get("house_property", [])))
+    if income.get("business_presumptive_income", 0) > 0 and (
+            income.get("presumptive_section") in ("44AD", "44ADA") or
+            (inp["financial_year"] == "2025-26" and "presumptive_section" not in income and non_business == 0)):
         dates = dates[-1:]
     rows = []
     for day, pct in dates if required else []:
@@ -313,16 +320,17 @@ def advance_plan_errors(inp, liability, plan):
                      "shortfall_at_deadline": rounded(max(0, target - by_deadline)),
                      "outstanding_now": rounded(max(0, target - paid)),
                      "deadline_passed": day < inp["as_of_date"]})
-    remaining = rounded(max(0, net - paid)) if required else 0
+    remaining = rounded(max(0, net - paid))
     upcoming = next((r for r in rows if r["due_date"] >= inp["as_of_date"] and r["outstanding_now"]), None)
     payment = None
-    if remaining:
+    if required and remaining:
         payment = {"due_date": upcoming["due_date"] if upcoming else f"{y + 1}-03-31",
                    "amount": upcoming["outstanding_now"] if upcoming else remaining,
                    "kind": "instalment" if upcoming else "year_end_top_up"}
     expected = {"expected_tds_tcs": round(credit), "net_advance_tax_liability": rounded(net),
                 "senior_exempt": exempt, "advance_tax_required": required,
                 "advance_tax_paid": round(paid), "annual_remaining": remaining,
+                "excess_advance_tax": rounded(max(0, paid - net)),
                 "schedule": rows, "next_payment": payment}
     return [key for key, value in expected.items() if plan.get(key) != value]
 
@@ -558,6 +566,24 @@ def main(argv=None):
                 print(f"  {e}", file=sys.stderr)
             print(json.dumps(inp, sort_keys=True), file=sys.stderr)
             return 2
+
+        if rng.random() < 0.05:
+            invalid = copy.deepcopy(inp)
+            inc = invalid.setdefault("income", {})
+            inc.pop("business_presumptive_income", None)
+            if rng.random() < 0.5:
+                inc["business_presumptive_income"] = 0
+            inc["presumptive_section"] = rng.choice(("44AD", "44ADA"))
+            rejected, _ = validate_check(invalid, today=fuzz_today(invalid))
+            try:
+                tax_engine.compute(invalid, today=fuzz_today(invalid))
+            except ValueError as exc:
+                engine_rejected = "positive business_presumptive_income" in str(exc)
+            else:
+                engine_rejected = False
+            if not any("positive business_presumptive_income" in e for e in rejected) or not engine_rejected:
+                print("FAIL - presumptive label without income accepted: " + json.dumps(invalid, sort_keys=True))
+                return 1
 
         for v in run_case(inp, bump_field, bump_delta):
             tally[v["invariant"]] = tally.get(v["invariant"], 0) + 1

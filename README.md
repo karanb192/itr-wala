@@ -6,7 +6,7 @@
 
 **New: plan FY 2026-27 advance tax alongside existing FY 2025-26 filing support.**
 
-⏳ **For supported non-audit AY 2026-27 returns, the original due date was 31 July without business/profession or 31 August with business/profession. You can still file a belated return until 31 December 2026, or assessment completion if earlier: late fee ₹1,000 if income is up to ₹5 lakh, else ₹5,000 (section 234F), plus applicable interest.** [Statutory dates](https://egazette.gov.in/WriteReadData/2026/271439.pdf).
+⏳ **Missed filing for income earned April 2025 to March 2026? You can still file by 31 December 2026, unless assessment finishes earlier. Submit and e-verify by then to avoid late verification crossing the cutoff. The late fee is ₹1,000 for income up to ₹5 lakh, otherwise ₹5,000, plus applicable interest.** [Statutory dates](https://egazette.gov.in/WriteReadData/2026/271439.pdf).
 
 > **Seen in the wild:** a [reel by @ezsnippet](https://www.instagram.com/reels/DcbBPwszsVR/) (3.7M followers) walked through this repo: *"ab tum bina CA ke bhi Income Tax return bhar sakte ho, ITR-Wala use karke."* 1.2M views in a week, and the repo's busiest week so far. Filed with itr-wala? [Two lines in this thread](https://github.com/karanb192/itr-wala/issues/10) help the next filer.
 
@@ -39,10 +39,10 @@ Historical FY 2025-26 recording (July 2026): the GIF shows the earlier 47-test b
 Then open your agent and say **"file my ITR"**. Hand it your Form 16 and AIS. It does the rest - except the three things only you should ever do: **pay, submit, e-verify**.
 
 Or say **"Plan my advance tax for FY 2026-27"**. It asks for an as-of date,
-your approved annual forecast, expected full-year TDS/TCS and actual paid
-challans. Python computes the next payment. Forecasts stay labelled as estimates;
-they never become filing figures without final evidence. No future filing fees,
-interest assessment or estimated refund is mixed into the payment target.
+your expected income for the whole year, tax employers and banks will deduct,
+and receipts for advance tax already paid. Python computes how much to pay next
+and by when. You approve every estimate. Final documents replace those estimates
+before preparing a return. The payment target excludes late fees and interest.
 See [the advance-tax workflow](skills/itr-wala/references/advance-tax.md).
 
 The agent confirms **which financial year** and whether you are **filing a return or planning advance tax**.
@@ -61,10 +61,13 @@ also distinguishes these two legal years.
 
 ## Existing-user calculation correction
 
-Engine 1.2.0 could understate FY 2025-26 new-regime tax when special-rate income
-pushed total income above ₹12 lakh. The correction adds ₹62,400 in the illustrated
+Any install before 1.3.0, including plugins 1.2.0 and 1.2.1 or unversioned
+clone/skills.sh installs, could understate FY 2025-26 new-regime tax. Recheck if
+you had special-rate gains or winnings, total income above ₹12 lakh, and a rebate
+or marginal relief in the old output. This includes slab income above ₹12 lakh
+in the marginal-relief band. Old computation JSON calls the engine 1.2.0. The correction adds ₹62,400 in the illustrated
 no-surcharge case and more when surcharge applies, before any resulting interest.
-If you relied on that engine, recompute and compare with
+Update using [the instructions for your install route](docs/rebate-correction.md#update-your-existing-install), then recompute and compare with
 your filed return and any processing intimation. See the [affected-input examples
 and next steps](docs/rebate-correction.md). A model-independent engine can still
 contain bugs; the tests do not replace review.
@@ -86,8 +89,8 @@ itr-wala splits the work the way it should be split:
 
 The math is defended in three layers, all shipped in the repo and run in CI on every commit:
 
-1. **84 tax tests** with hand-derived rupee expectations: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
-2. **127 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
+1. **88 tax tests** with hand-derived rupee expectations: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
+2. **131 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
 3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. A fresh 360,000-case sweep (90,000 per combination, seed 42) passed on the revised engine. The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
 
 The skill runs the golden suite in front of you before touching your return:
@@ -164,7 +167,8 @@ The fictional [fixture](skills/itr-wala/assets/example-advance-fy2026-27.json)
 uses ₹20L of other-source income, no salary, as of 10 December 2026. New-regime
 annual tax is ₹2,08,000; less ₹8,000 expected annual TDS gives ₹2,00,000.
 The December cumulative target is ₹1,50,000; less ₹90,000 already paid leaves
-**₹60,000 by 15 December 2026**. The old-regime comparison is ₹2,25,750.
+**₹60,000 by 15 December 2026**. Under the old regime, annual tax is ₹4,29,000
+and the 15 December payment is ₹2,25,750.
 Choose one payment plan after confirming the applicable regime. These are
 fixture results, not a ₹20L salary example.
 
@@ -193,12 +197,17 @@ For FY 2026-27, annual computation works after year end; notified return forms
 and the official utility must be checked before producing a portal field map.
 Revised returns and their fees remain unsupported.
 
-**Out of scope:** non-residents/RNOR, F&O/intraday, audit, foreign tax credit,
-ESOP deferral, property indexation caps, buyback loss entries and FY 2026-27
-buybacks, SGB exemption classification, business-trust distribution
-classification, agricultural income above ₹5,000, and unsupported years.
-Government old-regime NPS and income-timing interest exceptions need separate
-review; adding a year does not add those capabilities.
+**Out of scope:** non-residents/RNOR, F&O/intraday, audit, foreign tax credit
+(Form 67/DTAA), ESOP deferral and the property indexation option. If your return
+needs these, it will say so and point you to a CA rather than guess.
+Partial coverage is computed honestly; the rest is never silently approximated.
+
+Buyback loss entries, FY 2026-27 buybacks, SGB exemption classification,
+business-trust distribution classification, agricultural income above ₹5,000
+and unsupported years also need separate review. Government old-regime NPS
+and the exception for capital gains or dividends received during the year
+are not modelled; instalment interest can be overstated. See
+[the interest limitation](skills/itr-wala/references/advance-tax.md).
 
 **Hard boundaries, always:** never your password or OTP, never clicks Pay/Submit/e-Verify, never fabricates a deduction. Lowest *legal* tax.
 
@@ -217,11 +226,11 @@ Use whatever you trust. This is for people who'd rather review every number them
 Yes. You prepare your own return and file it yourself on the government portal - same as using the portal's own forms, just with better preparation. This tool never submits anything on your behalf.
 
 **What happens next year?**
-Select the income year explicitly. FY 2025-26 and FY 2026-27 are supported;
-other years fail closed. Covered numerical rates are shared only where the
-reviewed statutes agree, while dates and legal labels come from a year profile.
-Legacy JSON without a year still uses FY 2025-26 with a warning. A later
-Finance Act needs another sourced rule review and hand-derived tests.
+The agent asks which income year you mean. You can prepare FY 2025-26 returns
+or plan FY 2026-27 advance tax. It stops for other years until their rules have
+been reviewed and tested. Older saved inputs without a year still mean FY 2025-26;
+the agent warns and asks you to confirm. FY 2026-27 return guidance also needs
+the notified forms and utility checked after the year ends.
 
 **Windows?**
 WSL works today; native Windows paths are on the roadmap. macOS and Linux are first-class.

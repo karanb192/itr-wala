@@ -187,13 +187,10 @@ def compute_house_property(inp, regime_key, warnings):
                     warnings.append(f"New regime: self-occupied home-loan interest ({section(inp, 'home_loan')}) not deductible - ignored.")
         else:  # let_out
             nav = _pos(p.get("rent_received")) - _pos(p.get("municipal_taxes"))
-            # s.23(2)/s.24(a): municipal taxes are deductible only up to the
-            # annual value - the NAV can never go negative. Taxes above the
-            # rent (usually a transcription slip) must not manufacture a loss
-            # that could then set off against other heads under s.71.
+            # Excess municipal taxes must not manufacture a property loss.
             if nav < 0:
                 warnings.append("Municipal taxes exceed rent on a let-out property - "
-                                f"the {section(inp, 'rental_deduction')} deduction is limited to the annual value, "
+                                f"municipal taxes reduce annual value ({section(inp, 'rental_deduction')} only to zero, "
                                 "so NAV is taken as 0. Confirm the figures; municipal "
                                 "taxes above rent are usually a transcription error.")
                 nav = 0.0
@@ -418,9 +415,12 @@ def compute_regime(inp, regime_key):
                 if rebate > tax_slab and (t["111a"] or t["112"]):
                     notes.append(f"Old regime: {section(inp, 'rebate')} rebate applied against "
                                  f"{section(inp, 'stcg')}/{section(inp, 'other_ltcg')} tax. "
-                                 "Verify the notified current-year utility accepts the figure "
+                                 + ("Verify the notified current-year utility accepts the figure "
                                  "before filing; prior-year processing disputes do not "
-                                 "establish current-year portal treatment.")
+                                 "establish current-year portal treatment." if year_rules(inp)["tax_year"] else
+                                 "Statute and ITAT rulings support this, but CPC has disputed similar "
+                                 "claims in processing (CBDT Circular 13/2025 takes the department's side); "
+                                 "verify the portal accepts the figure before filing."))
         return {"specials": specials, "tax_special": tax_special, "rebate": rebate,
                 "mr87a": mr87a, "notes": notes,
                 "after": _pos(tax_slab + tax_special - rebate - mr87a)}
@@ -440,10 +440,12 @@ def compute_regime(inp, regime_key):
     rebate = chosen["rebate"]
     marginal_relief_87a = chosen["mr87a"]
     warnings.extend(chosen["notes"])
-    if (regime_key == "new" and special_total_net > 0 and slab_income <= 1_200_000
-            and total_income > 1_200_000 and marginal_relief_87a < min(tax_slab, 60_000)):
+    slab_only_relief = (min(tax_slab, 60_000) if slab_income <= 1_200_000
+                        else _pos(tax_slab - (slab_income - 1_200_000)))
+    if (regime_key == "new" and special_total_net > 0 and total_income > 1_200_000
+            and rebate + marginal_relief_87a < slab_only_relief):
         warnings.append(f"{section(inp, 'rebate')}: special-rate income takes total income above "
-                        "12,00,000, reducing or removing the slab-tax rebate. Include this "
+                        "12,00,000, reducing or removing the slab-tax rebate or marginal relief. Include this "
                         "effect when planning gains; the gains' tax alone is not the full cost.")
     tax_after_rebate = chosen["after"]
 
@@ -785,6 +787,9 @@ def compute(inp, today=None):
             comp["warnings"].append("Presumptive section not supplied: using quarterly advance-tax "
                                     "instalments. Confirm eligibility and set presumptive_section "
                                     "to 44AD or 44ADA for the single March instalment. 44AE is unsupported.")
+        elif business and not inp["income"].get("presumptive_section"):
+            comp["warnings"].append("Legacy FY 2025-26 presumptive-only input: retaining the single March "
+                                    "instalment. Confirm 44AD/44ADA eligibility and record presumptive_section.")
         if "financial_year" not in inp:
             comp["warnings"].append("financial_year omitted: using FY 2025-26 for "
                                     "backward compatibility. Confirm the income year.")
@@ -871,7 +876,8 @@ def compute_advance_plan(comp, inp, rules):
             "advance_tax_required": liable, "senior_exempt": senior_exempt,
             "advance_tax_paid": round(paid), "schedule": schedule,
             "next_payment": next_payment,
-            "annual_remaining": _r10(_pos(net - paid)) if liable else 0,
+            "annual_remaining": _r10(_pos(net - paid)),
+            "excess_advance_tax": _r10(_pos(paid - net)),
             "assumptions": assumptions}
 
 
@@ -930,14 +936,21 @@ def render_table(result):
             amount("Annual advance-tax base", plan['net_advance_tax_liability'])
             amount("Advance tax already paid", plan['advance_tax_paid'])
             amount("Annual amount still unpaid", plan['annual_remaining'])
+            if plan['excess_advance_tax']:
+                amount("Advance tax above estimated annual balance", plan['excess_advance_tax'])
             for s in plan["schedule"]:
                 amount(f"By {s['due_date']} ({s['cumulative_percent']}%)", s['cumulative_required'])
             if plan["next_payment"]:
                 p = plan["next_payment"]
                 amount(f"NEXT PAYMENT {p['due_date']} ({rk} regime)", p['amount'])
-                add("  Payment type: " + p['kind'].replace('_', ' '))
+                add("  Payment type: " + ("Scheduled instalment (cumulative target)" if p['kind'] == "instalment"
+                    else "Year-end top-up by 31 March (does not cure a missed 15 March instalment)"))
+            elif plan["advance_tax_required"]:
+                add("  Estimated annual advance tax is fully covered by recorded payments.")
             else:
                 add("  No advance-tax instalment required on these estimates.")
+                if plan['annual_remaining']:
+                    add("  The unpaid annual balance remains for self-assessment; this is not an instalment demand.")
             for assumption in plan["assumptions"]:
                 add("  - " + assumption)
             continue
@@ -960,7 +973,7 @@ def render_table(result):
             add(f"  RECOMMENDED: {cmp_['recommended_regime'].upper()} regime "
                 f"(saves Rs. {_fmt(cmp_['savings'])})")
         add(f"  New: {_fmt(cmp_['new_total'])}   Old: {_fmt(cmp_['old_total'])}")
-    if result["purpose"] == "advance_tax":
+    if result["purpose"] == "advance_tax" and "comparison" in result:
         add("\nChoose ONE payment plan after confirming the regime you can legally use.")
         add("A cheaper comparison does not establish eligibility to switch regimes.")
     warn = set(result.get("new", {}).get("warnings", []) + result.get("old", {}).get("warnings", []))

@@ -117,7 +117,9 @@ relative to this SKILL.md. Resolve the skill directory once at the start
 - For advance tax, complete step 1 before following `references/advance-tax.md`.
   Ask the as-of date and full-year expected income and TDS/TCS.
   Do not ask for a final Form 16 while the income year is still running.
-- For a FY 2026-27 return, annual computation is supported, but the bundled
+- Before 1 April 2027, offer FY 2026-27 advance-tax planning instead of a return.
+  Check the current date before creating a return workspace.
+- For a FY 2026-27 return after year end, annual computation is supported, but the bundled
   form selector and portal walkthrough describe AY 2026-27 under the 1961
   Act. Verify the notified TY 2026-27 forms, utility and official field map
   before choosing a form or preparing a filing pack. If not available, stop
@@ -128,7 +130,7 @@ relative to this SKILL.md. Resolve the skill directory once at the start
 Create in the current directory:
 
 ```
-itr-wala-<financial-year>-<purpose>/
+itr-wala-fy2025-26-return/  # or itr-wala-fy2026-27-advance-tax/
   docs/        # user drops documents here
   work/        # income.json, extraction-notes.md, progress.md
   output/      # filing-pack.md OR estimate-pack.md, computation.txt, computation.json
@@ -140,6 +142,10 @@ Write a `.gitignore` containing at minimum:
 `*form16*`, `*ITR*json`, `*ACK*`, `*Challan*`. (Pattern idea credited to the
 MIT-licensed file-itr project.)
 
+Use `itr-wala-fy<financial-year>-return/` or `itr-wala-fy<financial-year>-advance-tax/`.
+The JSON purpose value remains `advance_tax`. For an existing `itr-wala-workspace/`,
+read `work/progress.md` and `work/income.json` first. Confirm the year and purpose,
+then reuse that folder or rename it with the user's agreement; preserve all progress.
 Use one workspace per confirmed year AND purpose. On resume, read its progress
 record and income.json; confirm both match the request before reusing any figures.
 Write the confirmed context to `work/progress.md`. For advance tax, now follow
@@ -157,11 +163,16 @@ decrypt it with `scripts/decrypt_ais.py` before anything can read it. Ask for
 (documents-guide rule 10). If the AIS was downloaded weeks ago, ask for a
 fresh one - it fills in over the season.
 
+Check each Form 16, AIS and broker P&L period against the confirmed FY. Stop on
+a mismatch and request the correct document. Advance-tax planning follows its
+separate period-aware evidence instructions instead of this final-year check.
+
 ### 3. Extract
 
 Read each document and build `work/income.json` following
 `references/input-schema.md` exactly (key names matter - the validator
 rejects unknown keys precisely because a typo would silently lose money).
+Set `financial_year` and `purpose` from the step 0 confirmation in `work/income.json`.
 
 - Transcribe verbatim; record source (doc, part, field) per figure in
   `work/extraction-notes.md`.
@@ -247,7 +258,11 @@ with the engine, stop and reconcile - do not shrug and accept either number.
 
 ### 10. Post-filing
 
-- Remind: e-verify within 30 days or the return is invalid.
+- Remind: e-verify within 30 days to preserve the upload date. After 30 days,
+  verification becomes the filing date, with applicable late-filing consequences.
+  A return never verified is invalid. For a belated return, recommend submission
+  and verification by 31 December 2026 to avoid crossing the filing cutoff.
+  Source: [official verification FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/itr-v-faqs30-days-timeline-e-verification-returns-faq).
 - Save the ACK number into `work/progress.md` (never the JSON with PAN into
   chat).
 - Explain the processing intimation under s.143(1) for FY 2025-26; for

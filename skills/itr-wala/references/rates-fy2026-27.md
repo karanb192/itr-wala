@@ -8,7 +8,7 @@ under the 1961 Act. The government
 makes the same distinction.
 
 Read to explain engine output, never to do arithmetic. Verified against the
-[2025 Act amended by Finance Act 2026](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf),
+[2025 Act amended by Finance Act 2026](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf), with the [original 2025 Act Gazette](https://egazette.gov.in/WriteReadData/2025/265620.pdf) as a fetchable companion,
 the enacted [Finance Act 2026](https://egazette.gov.in/WriteReadData/2026/271439.pdf),
 and [Act 21 of 2026](https://egazette.gov.in/WriteReadData/2026/275521.pdf).
 If the consolidated PDF is unavailable, read the [original Act gazette](https://egazette.gov.in/WriteReadData/2025/265620.pdf)
@@ -67,7 +67,8 @@ Eligible s.58(2), Table 1/3 presumptive taxpayers pay 100% by 15 March, includin
 those with other income. Seniors with no business/profession are exempt; net
 liability below ₹10,000 requires no advance tax. Payments by 31 March count
 as advance tax but do not erase instalment default. Source:
-[s.403(3) exemption, s.404 threshold, s.405 credits and s.408 schedule](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf).
+[s.403(3) exemption, s.404 threshold, s.405 credits and s.408 schedule](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf),
+[2025 Act Gazette](https://egazette.gov.in/WriteReadData/2025/265620.pdf).
 Follow [advance-tax.md](advance-tax.md) for forecasts, credits and handoff.
 
 ## Annual return preparation after year end

@@ -14,8 +14,8 @@ FY 2026-27 buybacks and SGB exemption questions are outside this workflow.
 |---|---|---|---|
 | `stcg_111a` | s.111A | STT-paid listed equity / equity-oriented MF / business trust units held ≤12 months | 20% |
 | `ltcg_112a` | s.112A | Same assets held >12 months. Enter the FULL gain - the engine subtracts the 1,25,000 exemption itself; never pre-subtract | 12.5% above 1,25,000 |
-| `ltcg_other` | s.112 | Other long-term assets: property (holding period 24 months), gold, unlisted shares, pre-Apr-2023 debt-MF units held >24 months | 12.5%, no indexation |
-| `stcg_slab` | slab | Non-equity short-term gains; specified mutual-fund units acquired on/after 1-Apr-2023 (s.50AA, any holding period) | slab rates |
+| `ltcg_other` | s.112 | Other long-term assets: property (holding period 24 months), gold, unlisted shares; route fund units using the three-way table in this guide | 12.5%, no indexation |
+| `stcg_slab` | slab | Non-equity short-term gains; route fund units using the three-way table in this guide | slab rates |
 | `vda` | s.115BBH | Crypto/NFT/VDA transfer gains (sum of per-transfer positive gains only) | 30% flat |
 
 Surcharge on these supported CG buckets is capped at 15% and cess is 4%.
@@ -73,7 +73,10 @@ Use three branches for mutual funds, in this order:
 |---|---|
 | Equity-oriented, with required STT | Held over 12 months: equity LTCG; otherwise equity STCG |
 | Specified fund under s.50AA, units acquired on/after 1 April 2023 | Deemed short-term at slab rates regardless of holding period |
-| Other non-equity units, including specified units acquired before 1 April 2023 | Listed units held over 12 months, or unlisted over 24 months: other LTCG at 12.5%; otherwise slab-rate STCG |
+| Other non-equity units (for example gold/silver ETFs and FoFs, international FoFs, 35-65% hybrids), including specified units acquired before 1 April 2023 | Listed units held over 12 months, or unlisted over 24 months: other LTCG at 12.5%; otherwise slab-rate STCG |
+
+Liquid and overnight debt funds acquired on/after 1 April 2023 fall into
+`stcg_slab` at any holding period when they meet the specified-fund definition.
 
 Check listing status and acquisition date from evidence. A fund name or AIS code
 alone is insufficient. [AMFI holding-period guidance](https://www.amfiindia.com/investor/knowledge-center-info?zoneName=TaxRegimeForMutualFunds).

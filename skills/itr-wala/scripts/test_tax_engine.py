@@ -754,11 +754,68 @@ class TestReviewRegressions(unittest.TestCase):
                                     "capital_gains": {"stcg_111a": 150_000}}})
             self.assertEqual(old_liab(r), 20_800)
             self.assertEqual(r["old"]["tax"]["rebate_87a"], 12_500)
+            warning = " ".join(r["old"]["warnings"])
+            self.assertIn("s.156 rebate applied against s.196/s.197" if fy == "2026-27"
+                          else "CBDT Circular 13/2025", warning)
+
+    def test_special_income_above_slab_rebate_threshold(self):
+        for fy, filing in (("2025-26", "2026-07-20"), ("2026-27", "2027-07-20")):
+            for gross, gains, expected in ((1_285_000, {"ltcg_112a": 200_000}, 73_710),
+                                           (1_285_000, {"stcg_111a": 50_000}, 62_400)):
+                r = compute({"financial_year": fy, "filing_date": filing, "income": {
+                    "salary": {"gross": gross}, "capital_gains": gains}})
+                self.assertEqual(new_liab(r), expected)
+                self.assertEqual(r["new"]["tax"]["rebate_87a"], 0)
+
+    def test_presumptive_label_requires_positive_income(self):
+        from validate_income import check
+        for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
+            for purpose in ("return", "advance_tax"):
+                for label in ("44AD", "44ADA"):
+                    for business in (None, 0):
+                        income = {"salary": {"gross": 3_000_000}, "presumptive_section": label}
+                        if business is not None:
+                            income["business_presumptive_income"] = business
+                        inp = {"financial_year": fy, "purpose": purpose, "income": income}
+                        inp.update({"filing_date": f"{year + 1}-07-20"} if purpose == "return"
+                                   else {"as_of_date": f"{year}-12-10"})
+                        self.assertTrue(any("positive business_presumptive_income" in e for e in check(inp)[0]))
+                        with self.assertRaisesRegex(ValueError, "positive business_presumptive_income"):
+                            compute(inp)
+
+    def test_legacy_presumptive_only_retains_march_interest(self):
+        for fy in (None, "2025-26"):
+            inp = {"filing_date": "2026-07-28", "income": {"business_presumptive_income": 1_500_000},
+                   "taxes_paid": {"advance_tax": [{"date": "2026-03-10", "amount": 120_000}]}}
+            if fy:
+                inp["financial_year"] = fy
+            r = compute(inp)
+            self.assertEqual(r["new"]["interest_and_fees"]["234C"], 0)
+            self.assertEqual(r["old"]["interest_and_fees"]["234C"], 1_530)
+            self.assertTrue(any("Legacy" in w for w in r["new"]["warnings"]))
+
+    def test_plan_unpaid_excess_and_single_regime_rendering(self):
+        from tax_engine import render_table
+        inp = {"financial_year": "2026-27", "purpose": "advance_tax", "regime": "new",
+               "as_of_date": "2026-12-10", "income": {"other_sources": {"other": 2_000_000}},
+               "expected_tax_credits": {"tds": 200_000},
+               "taxes_paid": {"advance_tax": [{"date": "2026-10-01", "amount": 3_000}]}}
+        r = compute(inp)
+        self.assertEqual(r["new"]["advance_tax"]["annual_remaining"], 5_000)
+        self.assertIsNone(r["new"]["advance_tax"]["next_payment"])
+        self.assertIn("self-assessment", render_table(r))
+        self.assertNotIn("Choose ONE", render_table(r))
+        inp["expected_tax_credits"]["tds"] = 0
+        inp["taxes_paid"]["advance_tax"][0]["amount"] = 250_000
+        r = compute(inp)
+        self.assertEqual(r["new"]["advance_tax"]["excess_advance_tax"], 42_000)
+        self.assertIn("fully covered", render_table(r))
 
     def test_super_senior_new_year_old_regime(self):
         r = compute({"financial_year": "2026-27", "filing_date": "2027-07-20",
                      "age_category": "super_senior", "income": {"other_sources": {"fd_interest": 1_000_000}}})
         self.assertEqual(old_liab(r), 93_600)
+        self.assertEqual(r["old"]["tax"]["slab_tax"], 90_000)  # (10L - 50k deposit deduction - 5L exemption) * 20%
         self.assertTrue(any("s.403(3)" in s for s in r["old"]["interest_and_fees"]["assumptions"]))
 
     def test_business_august_due_date_both_years(self):
@@ -772,17 +829,19 @@ class TestReviewRegressions(unittest.TestCase):
 
     def test_missing_filing_date_agrees_with_validator(self):
         from validate_income import check
-        inp = {"financial_year": "2026-27"}
-        for today, allowed in ((date(2026, 10, 4), False), (date(2027, 3, 31), False),
-                               (date(2027, 4, 1), True), (date(2027, 12, 31), True),
-                               (date(2028, 1, 1), False)):
-            errors, _ = check(inp, today=today)
-            self.assertEqual(not errors, allowed)
-            if allowed:
-                compute(inp, today=today)
-            else:
-                with self.assertRaisesRegex(ValueError, "filing_date"):
+        for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
+            inp = {"financial_year": fy}
+            for today, allowed in ((date(year, 10, 4), False), (date(year + 1, 3, 31), False),
+                                   (date(year + 1, 4, 1), True), (date(year + 1, 12, 31), True),
+                                   (date(year + 2, 1, 1), False)):
+                errors, _ = check(inp, today=today)
+                self.assertEqual(not errors, allowed)
+                if allowed:
                     compute(inp, today=today)
+                else:
+                    self.assertIn(f"filing_date not provided; defaulted to today ({today})", errors[0])
+                    with self.assertRaisesRegex(ValueError, "defaulted to today"):
+                        compute(inp, today=today)
 
     def test_belated_cutoff_both_years(self):
         for fy, year in (("2025-26", 2026), ("2026-27", 2027)):
@@ -805,7 +864,8 @@ class TestReviewRegressions(unittest.TestCase):
         import re
         inp = {"financial_year": "2026-27", "filing_date": "2027-09-01",
                "income": {"salary": {"gross": 2_000_000, "professional_tax": 6_000, "basic_plus_da": 100_000},
-                          "house_property": [{"type": "self_occupied", "interest_paid": 300_000}],
+                          "house_property": [{"type": "self_occupied", "interest_paid": 300_000},
+                                             {"type": "let_out", "rent_received": 1_000, "municipal_taxes": 2_000}],
                           "capital_gains": {"ltcg_other": 100_000}, "other_sources": {"family_pension": 90_000}},
                "deductions": {"80c": 200_000, "80ccd_2": 90_000, "80tta_ttb": 10_000, "80g": 5_000},
                "relief_89": 89}
@@ -815,7 +875,33 @@ class TestReviewRegressions(unittest.TestCase):
         self.assertIn("s.22(2)", warnings)
         self.assertIn("s.157 of 89", warnings)
         self.assertIn("deposit interest, donations", warnings)
-        self.assertIsNone(re.search(r"87A|80TTA|80G|153_TTB|115BAC|s\.112|s\.24|s\.57", warnings))
+        from tax_engine import render_table
+        from validate_income import check
+        def strings(value):
+            if isinstance(value, str):
+                yield value
+            elif isinstance(value, dict):
+                for child in value.values():
+                    yield from strings(child)
+            elif isinstance(value, (list, tuple)):
+                for child in value:
+                    yield from strings(child)
+        forbidden = re.compile(r"\b(?:87A|80C(?:CD(?:\(\d\))?)?|80D|80G|80TTA|80TTB|111A|112A|115BAC|115BBH|234[A-F]|288[AB])\b|s\.(?:112|24|57|139)\b|16\(iii\)|\d+_[A-Za-z]")
+        cases = [inp,
+                 {"financial_year": "2026-27", "filing_date": "2027-07-20",
+                  "income": {"other_sources": {"other": 300_000}, "capital_gains": {"stcg_111a": 150_000}}},
+                 {"financial_year": "2026-27", "filing_date": "2027-07-20", "age_category": "super_senior",
+                  "income": {"other_sources": {"fd_interest": 1_000_000}}},
+                 {"financial_year": "2026-27", "purpose": "advance_tax", "as_of_date": "2026-12-10",
+                  "income": {"capital_gains": {"vda": 100_000, "ltcg_112a": 200_000},
+                             "other_sources": {"winnings": 100_000}}}]
+        for case in cases:
+            result = compute(case)
+            for value in list(strings(result)) + [render_table(result)] + list(strings(check(case))):
+                self.assertIsNone(forbidden.search(value), value)
+        for injected in ("Instalment interest (s.234C)", "80_TTB"):
+            self.assertIsNotNone(forbidden.search(injected))
+        self.assertIn("s.21(3)", warnings)
 
     def test_gain_warning_and_legacy_fixture(self):
         import json
@@ -827,7 +913,9 @@ class TestReviewRegressions(unittest.TestCase):
             self.assertTrue(any(section in w and "special-rate income" in w for w in r["new"]["warnings"]))
         inp = json.loads((Path(__file__).parent.parent / "assets/example-income.json").read_text())
         inp.pop("financial_year")
-        self.assertEqual(compute(inp)["new"]["interest_and_fees"]["final_payable_or_refund"], 720)
+        r = compute(inp)
+        self.assertEqual(r["new"]["interest_and_fees"]["final_payable_or_refund"], 720)
+        self.assertTrue(any("financial_year omitted" in w for w in r["new"]["warnings"]))
 
     def test_fuzz_oracle_detects_coherent_wrong_plan(self):
         import copy

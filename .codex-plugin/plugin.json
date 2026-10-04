@@ -22,7 +22,7 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "ITR Wala",
-    "shortDescription": "File your ITR and plan advance tax.",
+    "shortDescription": "File Indian ITRs and plan advance tax.",
     "longDescription": "File for FY 2025-26 or plan advance tax for FY 2026-27. Read documents, compare regimes with tested Python and reconcile TDS. Current-year forecasts stay separate from final return figures. You always pay, submit and e-verify yourself.",
     "developerName": "Karan Bansal",
     "category": "Productivity",

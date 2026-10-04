@@ -31,6 +31,9 @@ Python 3.9 and 3.12, with 12,000 fuzz cases per version, on every push and PR.
 The fuzzer pins the default filing clock to 20 July after the selected income year,
 including cases with no filing date. Clock-boundary tests cover invalid contexts.
 Its ninth invariant derives advance-tax targets and payments from input fields.
+It also probes rejection of presumptive labels without income. The validator suite
+runs a CLI case with a mocked 5 January 2027 clock; production has no clock override.
+CI validates and computes both bundled example inputs after the suites.
 
 ## What help is most wanted
 

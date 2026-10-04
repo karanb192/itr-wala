@@ -14,10 +14,10 @@ form number. See [Finance Act 2026 s.5](https://egazette.gov.in/WriteReadData/20
 | Business/professional income, not liable to audit | **31 Aug 2026** |
 | Audit cases (s.44AB), outside scope | 21 Nov 2026 (extended from 31 Oct) |
 | Transfer pricing (s.92E) | 30 Nov 2026 |
-| Belated return, s.139(4) | 31 Dec 2026 |
+| Belated return, s.139(4) | 31 Dec 2026; submit and e-verify by this date to avoid late verification crossing the cutoff |
 | Revised return, s.139(5) | 31 Mar 2027 (extended by Finance Act 2026) |
 
-- Audit extension: [CBDT Circular 07/2026 dated 28 September, announced 29 September](https://www.incometax.gov.in/iec/foportal/latest-news), audit report 21 October and return 21 November. Re-check official notifications before quoting any deadline; never carry an extension across years.
+- Audit extension: [CBDT Circular 07/2026 dated 28 September 2026](https://www.incometax.gov.in/iec/foportal/sites/default/files/2026-09/Circular-7-2026.pdf), audit report 21 October and return 21 November. Re-check official notifications before quoting any deadline; never carry an extension across years.
 - Belated/revised limits are also subject to earlier assessment completion. Revisions from 1 January to 31 March 2027 attract s.234I fee ₹1,000 up to ₹5L total income, ₹5,000 above it. Revised-return workflow/fees are unsupported. Sources: [Finance Act s.5/16](https://egazette.gov.in/WriteReadData/2026/271439.pdf), [ITR-2 FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/itr-2/itr-2-faqs).
 - **Belated return regime lock (s.115BAC(6)):** once the s.139(1) due date passes, a no-business taxpayer can no longer opt for the old regime - the utility enforces new-regime-only for belated returns. The engine detects `filing_date > due_date`, warns, and forces its recommendation to the new regime even when the old computes cheaper.
 - Pass an explicitly verified `due_date`. The engine defaults to 2026-07-31 without business income, 2026-08-31 with supported presumptive income.
@@ -35,8 +35,8 @@ form number. See [Finance Act 2026 s.5](https://egazette.gov.in/WriteReadData/20
 | > 24,00,000 | 30% |
 
 - Standard deduction (salary/pension): **75,000**.
-- **s.87A rebate: max 60,000.** The ₹12,00,000 eligibility threshold uses TOTAL income, including special-rate gains. The rebate offsets slab-rate tax only. Salary up to ₹12,75,000 yields zero tax only with no other income affecting eligibility. Source: [Finance Act 2025 s.20](https://egazette.gov.in/WriteReadData/2025/262125.pdf).
-- **87A marginal relief:** above ₹12L total income, the deduction is total income-tax minus income exceeding ₹12L, capped at slab-rate tax. For slab-only income ₹12,10,000, tax before relief is ₹61,500, relief ₹51,500, then cess gives ₹10,400. With special income, tax need not fall to the excess because that deduction cannot absorb special-rate tax. Source: [s.87A amended by Finance Act 2025](https://egazette.gov.in/WriteReadData/2025/262125.pdf).
+- **s.87A rebate: max 60,000.** The ₹12,00,000 eligibility threshold uses TOTAL income, including special-rate gains. The rebate offsets slab-rate tax only. Salary up to ₹12,75,000 yields zero tax only with no other income affecting eligibility. Source: [Finance Act 2025 s.20](https://egazette.gov.in/WriteReadData/2025/262125.pdf), as corrected by [Finance Act 2026 s.161](https://egazette.gov.in/WriteReadData/2026/271439.pdf).
+- **87A marginal relief:** above ₹12L total income, the deduction is total income-tax minus income exceeding ₹12L, capped at slab-rate tax. For slab-only income ₹12,10,000, tax before relief is ₹61,500, relief ₹51,500, then cess gives ₹10,400. With special income, tax need not fall to the excess because that deduction cannot absorb special-rate tax. Source: [s.87A amended by Finance Act 2025 s.20](https://egazette.gov.in/WriteReadData/2025/262125.pdf), as corrected by [Finance Act 2026 s.161](https://egazette.gov.in/WriteReadData/2026/271439.pdf).
 - Deductions surviving in new regime: employer NPS **s.80CCD(2) at 14% of Basic+DA** (govt AND private, FY 2025-26). No 80C/80D/80TTA/HRA/LTA/s.24(b) self-occupied interest; house-property loss cannot be set off against other heads. The engine warns when it drops these.
 - **Retirement exemptions survive the new regime**: gratuity s.10(10), commuted pension s.10(10A), leave encashment s.10(10AA), retrenchment s.10(10B), VRS s.10(10C) - s.115BAC withdraws only 10(5)/10(13A)/most 10(14)/10(17)/10(32). Schema field `salary.exempt_retirement`, deducted in BOTH regimes; `salary.exempt_allowances` (HRA/LTA) stays old-regime-only.
 

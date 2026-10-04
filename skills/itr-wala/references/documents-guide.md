@@ -38,7 +38,7 @@ One number per income head, each tied to a source document. Never accept a figur
 ### 3. Form 16 (one per employer)
 - WHAT: employer's TDS certificate. **Part A**: TDS deposited quarter-by-quarter. **Part B**: salary breakup - s.17(1) salary, 17(2) perquisites, 17(3) profits in lieu - exempt allowances, and the regime the employer used.
 - WHERE: from each employer (HR/payroll portal or email), for the selected income year. A current-year advance-tax estimate uses payslips/payroll forecasts until the final certificate exists; see [advance-tax.md](advance-tax.md). Verify year-specific certificate forms under the 2025 Act rather than assuming the old form number.
-- WHY: feeds `salary.form16_17_1/2/3`, `salary.gross`, `exempt_allowances`, `professional_tax`, `basic_plus_da` (enables the 80CCD(2) cap check), and `source_totals.form16_gross_salary/form16_total_tds`. The validator hard-errors if 17(1)+17(2)+17(3) ≠ gross.
+- WHY: feeds `salary.form16_17_1/2/3`, `salary.gross`, `exempt_allowances`, `professional_tax`, `basic_plus_da` (enables the 80CCD(2) cap check), and `source_totals.form16_gross_salary/form16_total_tds`. For returns, the validator hard-errors if 17(1)+17(2)+17(3) ≠ gross. For planning, it warns to reconcile source periods without reducing the approved annual forecast.
 
 ### 4. Broker tax P&L (capital gains)
 - WHAT: realised STCG/LTCG per scrip with buy/sell dates, cost, sale value, STT flag; usually splits equity vs debt vs intraday vs F&O.

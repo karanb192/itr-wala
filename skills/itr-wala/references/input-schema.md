@@ -19,7 +19,7 @@ When to read this: before writing or editing the `income.json` that you feed to 
   "age_category": "regular",           // "regular" | "senior" (60-79) | "super_senior" (80+)
   "residential_status": "resident",    // engine is resident-only; NRI/RNOR → stop, out of scope
   "name": "Asha Verma",
-  "due_date": "2026-07-31",            // AY 2026-27: ITR-1/2 → 2026-07-31; non-audit ITR-3/4 → 2026-08-31
+  "due_date": "2026-07-31",            // no business/profession; supported non-audit business: 2026-08-31
   "filing_date": "2026-07-28",         // defaults to today if omitted
   "income": {
     "salary": {
@@ -87,7 +87,7 @@ This example triggers one expected validator warning (TDS claimed 3,55,000 diffe
 | `capital_gains.stcg_111a` | STT equity/eq-MF ≤12m gains | broker tax P&L | taxed 20% (s.111A) |
 | `capital_gains.ltcg_112a` | STT equity/eq-MF >12m gains | broker tax P&L | enter FULL gain; engine applies 1,25,000 exemption and 12.5%. Aggregate across all brokers |
 | `capital_gains.ltcg_other` | s.112 LTCG (property, gold, unlisted) | sale deed / statements | engine uses flat 12.5% no-indexation; the 20%-with-indexation option for land/building acquired on/before 22-Jul-2024 is NOT modeled - flag to user if relevant |
-| `capital_gains.stcg_slab` | slab-rate gains | broker/AMC statements | debt MFs (s.50AA, units bought on/after 1-Apr-2023 are always slab-rate STCG), short-held gold, etc. |
+| `capital_gains.stcg_slab` | slab-rate gains | broker/AMC statements | specified funds (s.50AA, qualifying units bought on/after 1-Apr-2023 are slab-rate STCG), short-held gold, etc. |
 | `capital_gains.vda` | crypto/VDA gains, s.115BBH | exchange statement | sale minus cost of acquisition only; NEVER net losses against gains (no set-off); 30% flat, forces ITR-2/3 |
 | `other_sources.savings_interest` / `fd_interest` | bank interest | AIS + bank statements | the split matters: 80TTA (regular) counts savings only; 80TTB (seniors) counts both |
 | `other_sources.dividends` | dividend income | AIS / broker | must sit here, not in `other` - engine's 15% surcharge cap keys on this field |
@@ -96,6 +96,7 @@ This example triggers one expected validator warning (TDS claimed 3,55,000 diffe
 | `other_sources.other` | residual slab-rate income | varies | NOT for buyback (see capital-gains.md) and NOT for winnings (use `winnings`) |
 | `relief_89` (top level) | s.89(1) relief for salary arrears | Form 10E computation / Form 16 "relief u/s 89" | engine nets it after cess; Form 10E must be e-filed before the return |
 | `business_presumptive_income` | declared presumptive income (44AD/44ADA) | user's election | the one declared (not document) figure: e.g. 50% of 44ADA gross receipts as elected |
+| `presumptive_section` | "44AD" or "44ADA" | confirmed eligible election | stable identifiers in both FYs, corresponding to new s.58(2) Table 1/3; enables one March instalment even with other income. Omission warns and uses quarterly targets; 44AE rejected |
 | `deductions.80c/80ccd_1b/80d/80g/other` | Chapter VI-A claims | proof receipts | old regime only (engine warns in new). 80C capped 1,50,000; 80CCD(1B) 50,000; 80D and 80G NOT engine-capped - enter only the eligible amount |
 | `deductions.80ccd_2` | employer NPS | Form 16 | valid in BOTH regimes; capped at 14%/10% of `basic_plus_da` when that field is present |
 | `deductions.80tta_ttb` | savings-interest deduction | - | best OMITTED: engine auto-derives from the interest fields and applies 10,000/50,000 caps |
@@ -124,9 +125,21 @@ for the full counterpart table and form/transaction limits.
 ## Advance-tax example
 
 The bundled [example-advance-fy2026-27.json](../assets/example-advance-fy2026-27.json)
-is fictional. Its ₹20L annual income and ₹8,000 expected annual TDS are approved
+is fictional, with other-source income and no salary, as of 10 December 2026. Its ₹20L annual income and ₹8,000 expected annual TDS are approved
 forecast stand-ins; recorded TDS is only ₹4,000, cross-checked against a current
 statement total. Paid June/September challans are actual-payment stand-ins.
 The engine shows the December target and next payment without a refund or
 future filing interest. Keep `due_date`, `filing_date` and `self_assessment` out
 of this mode. Follow [advance-tax.md](advance-tax.md).
+
+Return filing dates, including the default of today, must follow the selected
+income year and fall no later than 31 December of the following year. A later
+updated return may be possible but is unsupported. Prior assessment completion
+can close filing earlier; confirm that with the user.
+
+For planning, salary.gross is the approved annual forecast. Source totals retain
+their document periods; salary equality checks apply to returns, while planning
+emits a period-reconciliation warning. The output schedule separates
+`shortfall_at_deadline` from `outstanding_now`, with `paid_to_date` showing later
+payments. A fully covered plan has `next_payment: null`; otherwise it selects
+the first future unpaid target or a year-end top-up.

@@ -67,6 +67,17 @@ fund acquired after April 2023. Use the broker/AMC's confirmed classification;
 stop if it is unclear. Sources: [s.50AA](https://www.incometaxindia.gov.in/w/section-50aa-3),
 [AMFI tax guidance](https://www.amfiindia.com/investor/knowledge-center-info?zoneName=TaxRegimeForMutualFunds).
 
+Use three branches for mutual funds, in this order:
+
+| Classification | Treatment for the supported years |
+|---|---|
+| Equity-oriented, with required STT | Held over 12 months: equity LTCG; otherwise equity STCG |
+| Specified fund under s.50AA, units acquired on/after 1 April 2023 | Deemed short-term at slab rates regardless of holding period |
+| Other non-equity units, including specified units acquired before 1 April 2023 | Listed units held over 12 months, or unlisted over 24 months: other LTCG at 12.5%; otherwise slab-rate STCG |
+
+Check listing status and acquisition date from evidence. A fund name or AIS code
+alone is insufficient. [AMFI holding-period guidance](https://www.amfiindia.com/investor/knowledge-center-info?zoneName=TaxRegimeForMutualFunds).
+
 ## Broker Tax P&L exports
 
 - Ask for each broker's tax P&L report (Zerodha: Console → Reports → Tax P&L; Groww/Upstox have equivalents). These give the STCG/LTCG split with grandfathered costs already applied.

@@ -2,23 +2,11 @@
 
 [![tests](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml/badge.svg)](https://github.com/karanb192/itr-wala/actions/workflows/tests.yml) [![skills.sh installs](https://skills.sh/b/karanb192/itr-wala)](https://skills.sh/karanb192/itr-wala) [![GitHub stars](https://img.shields.io/github/stars/karanb192/itr-wala?style=flat-square)](https://github.com/karanb192/itr-wala/stargazers)
 
-**Prepare your Indian income tax from the terminal. FY 2025-26 returns and FY 2026-27 advance-tax planning. Every rupee computed by tested Python, never by the LLM.**
+**File your Indian income tax return from your terminal. No CA, no ₹3,000 fee, no 3 hours on the portal. Every rupee of tax math computed by tested code, not by an LLM.**
+
+**New: plan FY 2026-27 advance tax alongside existing FY 2025-26 filing support.**
 
 ⏳ **For supported non-audit AY 2026-27 returns, the original due date was 31 July without business/profession or 31 August with business/profession. You can still file a belated return until 31 December 2026, or assessment completion if earlier: late fee ₹1,000 if income is up to ₹5 lakh, else ₹5,000 (section 234F), plus applicable interest.** [Statutory dates](https://egazette.gov.in/WriteReadData/2026/271439.pdf).
-
-The agent first asks **which financial year** and **return or advance tax**.
-Each year has its own dates and legal labels; an unknown year is rejected.
-
-| Income year | What you can use it for | Legal year |
-|---|---|---|
-| FY 2025-26, April 2025 to March 2026 | Existing return preparation and belated filing; advance-tax estimates for that year's dates | AY 2026-27, Income-tax Act 1961 |
-| FY 2026-27, April 2026 to March 2027 | Annual tax comparison and advance-tax targets, including 15 December 2026 and 15 March 2027 | Tax Year 2026-27, Income-tax Act 2025 |
-
-For FY 2026-27, final return forms and portal fields must be verified before
-filing guidance. The bundled AY 2026-27 walkthrough remains for FY 2025-26.
-See the [new-year rules and sources](skills/itr-wala/references/rates-fy2026-27.md).
-The government [estimator manual](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/income-and-tax-estimator-um)
-also distinguishes these two legal years.
 
 > **Seen in the wild:** a [reel by @ezsnippet](https://www.instagram.com/reels/DcbBPwszsVR/) (3.7M followers) walked through this repo: *"ab tum bina CA ke bhi Income Tax return bhar sakte ho, ITR-Wala use karke."* 1.2M views in a week, and the repo's busiest week so far. Filed with itr-wala? [Two lines in this thread](https://github.com/karanb192/itr-wala/issues/10) help the next filer.
 
@@ -44,6 +32,8 @@ npx skills add karanb192/itr-wala
 
 Run from a checkout, `install.sh` **never touches the network** - it copies the files you just read. See [Install from a branch you reviewed](#install-from-a-branch-you-reviewed) for why that matters when the tool handles your salary and bank data.
 
+Historical FY 2025-26 recording (July 2026): the GIF shows the earlier 47-test build. Run the current self-test for the current suite and year selection.
+
 ![itr-wala demo: golden tests pass, income validates against document totals, both regimes computed - ₹42,811 found](demo/demo.gif)
 
 Then open your agent and say **"file my ITR"**. Hand it your Form 16 and AIS. It does the rest - except the three things only you should ever do: **pay, submit, e-verify**.
@@ -54,6 +44,29 @@ challans. Python computes the next payment. Forecasts stay labelled as estimates
 they never become filing figures without final evidence. No future filing fees,
 interest assessment or estimated refund is mixed into the payment target.
 See [the advance-tax workflow](skills/itr-wala/references/advance-tax.md).
+
+The agent confirms **which financial year** and whether you are **filing a return or planning advance tax**.
+Each year has its own dates and legal labels; an unknown year is rejected.
+
+| Income year | What you can use it for | Legal year |
+|---|---|---|
+| FY 2025-26, April 2025 to March 2026 | Return preparation and belated filing | AY 2026-27, Income-tax Act 1961 |
+| FY 2026-27, April 2026 to March 2027 | Annual tax comparison and advance-tax targets, including 15 December 2026 and 15 March 2027 | Tax Year 2026-27, Income-tax Act 2025 |
+
+For FY 2026-27, final return forms and portal fields must be verified before
+filing guidance. The bundled AY 2026-27 walkthrough remains for FY 2025-26.
+See the [new-year rules and sources](skills/itr-wala/references/rates-fy2026-27.md).
+The government [estimator manual](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/income-and-tax-estimator-um)
+also distinguishes these two legal years.
+
+## Existing-user calculation correction
+
+Engine 1.2.0 could understate FY 2025-26 new-regime tax when special-rate income
+pushed total income above ₹12 lakh. The correction can add up to ₹62,400 before
+any resulting interest. If you relied on that engine, recompute and compare with
+your filed return and any processing intimation. See the [affected-input examples
+and next steps](docs/rebate-correction.md). A model-independent engine can still
+contain bugs; the tests do not replace review.
 
 ## Why this exists
 
@@ -72,18 +85,17 @@ itr-wala splits the work the way it should be split:
 
 The math is defended in three layers, all shipped in the repo and run in CI on every commit:
 
-1. **73 tax tests** with hand-derived rupee expectations: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
-2. **122 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
-3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
+1. **83 tax tests** with hand-derived rupee expectations: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
+2. **127 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
+3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. A fresh 360,000-case sweep (90,000 per combination, seed 42) passed on the revised engine. The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
 
 The skill runs the golden suite in front of you before touching your return:
 
+```sh
+python3 skills/itr-wala/scripts/test_tax_engine.py
 ```
-$ python3 skills/itr-wala/scripts/test_tax_engine.py
-........................................................................
-Ran 73 tests in 0.006s
-OK
-```
+
+The suite must finish with `OK` before the workflow continues.
 
 (Installed as a plugin and can't find the path? Just ask the agent to "run the itr-wala self-test".)
 
@@ -109,20 +121,35 @@ Real output, reproducible from the bundled (fictional) example - `python3 skills
 Income-tax computation for FY 2025-26 (AY 2026-27)
 Income-tax Act, 1961
 ================================================================
+
 [NEW REGIME]
-  Gross total income               26,06,700
-  Total income                     25,06,700
-  TOTAL TAX                         3,00,350
-  NET PAYABLE (-ve=refund)               720
+  Gross total income                                    26,06,700
+  Deductions                                             1,00,000
+  Total income                                          25,06,700
+  Tax on slab income                                     2,75,425
+  s.111A STCG (equity)                                      9,000
+  s.112A LTCG (equity)                                      4,375
+  Cess (4%)                                                11,552
+  TOTAL TAX                                              3,00,350
+  Instalment interest s.234C                                  366
+  NET PAYABLE (-ve=refund)                                    720
 
 [OLD REGIME]
-  Gross total income               22,09,300
-  Total income                     18,74,300
-  TOTAL TAX                         3,39,730
-  NET PAYABLE (-ve=refund)            43,530
+  Gross total income                                    22,09,300
+  Deductions                                             3,35,000
+  Total income                                          18,74,300
+  Tax on slab income                                     3,13,290
+  s.111A STCG (equity)                                      9,000
+  s.112A LTCG (equity)                                      4,375
+  Cess (4%)                                                13,067
+  TOTAL TAX                                              3,39,730
+  Advance-tax shortfall interest s.234B                     1,588
+  Instalment interest s.234C                                2,209
+  NET PAYABLE (-ve=refund)                                 43,530
 
 ================================================================
   RECOMMENDED: NEW regime (saves Rs. 42,811)
+  New: 3,00,716   Old: 3,43,527
 ```
 
 An advance-tax estimate is reproducible too:
@@ -133,14 +160,16 @@ python3 skills/itr-wala/scripts/tax_engine.py skills/itr-wala/assets/example-adv
 ```
 
 The fictional [fixture](skills/itr-wala/assets/example-advance-fy2026-27.json)
-has ₹20L approved annual income, ₹8,000 expected annual TDS and ₹90,000 paid
-advance tax. Its new-regime output shows ₹2,08,000 annual tax and **₹60,000
-next payment by 15 December 2026**. Every target comes from the engine, with
-the forecast assumptions shown beside it.
+uses ₹20L of other-source income, no salary, as of 10 December 2026. New-regime
+annual tax is ₹2,08,000; less ₹8,000 expected annual TDS gives ₹2,00,000.
+The December cumulative target is ₹1,50,000; less ₹90,000 already paid leaves
+**₹60,000 by 15 December 2026**. The old-regime comparison is ₹2,25,750.
+Choose one payment plan after confirming the applicable regime. These are
+fixture results, not a ₹20L salary example.
 
 ## Optional invitation
 
-After a useful outcome, the skill may offer one optional star invitation.
+After filing is complete, the skill may offer one optional star invitation. An advance-tax estimate does not trigger it.
 It records the offer in `~/.cache/itr-wala/star-invitation.json`
 (or under `XDG_CACHE_HOME`) before asking, so later conversations skip it.
 Clearing the cache or using another machine can reset the record. Starring
@@ -156,15 +185,9 @@ write its record, the skill skips the invitation.
 
 ## What it covers (and refuses)
 
-**Computation for both FYs, resident individuals:** salary and eligible retirement
-exemptions, supported house-property loss set-off, equity and other supported
-capital gains, VDA, winnings, interest/dividends, family pension, documented
-arrears relief, eligible presumptive income, supported deductions, both regimes,
-surcharge and cess. Advance-tax planning handles annual forecasts, expected
-credits, dated payments, senior exemption and the single presumptive March
-instalment. See each year's rate card for limits and legal counterparts.
+**In scope (AY 2026-27, resident individuals):** salary (multiple employers, retirement exemptions like gratuity and leave encashment in both regimes), house property including s.71 loss set-off, equity/MF capital gains (111A/112A/112, grandfathering-aware exemption ordering), debt MF, crypto/VDA, lottery and online-game winnings (115BB/115BBJ), interest & dividends, family pension with the s.57(iia) deduction, s.89 arrears relief, eligible presumptive income (44AD/44ADA; 44AE excluded), supported Chapter VI-A deductions, both regimes, surcharge with marginal relief, advance-tax interest computed to actual challan dates, late fees, belated returns (including the s.115BAC(6) rule that locks belated filers out of the old regime - it will tell you, not let you find out from a notice), ITR-1/2/3/4 form selection.
 
-**Filing:** FY 2025-26 retains ITR-1/2/3/4 selection and belated-return guidance.
+**FY 2026-27:** the same supported income categories have annual computation and advance-tax planning, with expected annual credits and dated payments.
 For FY 2026-27, annual computation works after year end; notified return forms
 and the official utility must be checked before producing a portal field map.
 Revised returns and their fees remain unsupported.

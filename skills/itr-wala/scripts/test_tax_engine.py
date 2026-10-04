@@ -723,6 +723,16 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
 
 
 class TestReviewRegressions(unittest.TestCase):
+    def test_year_end_top_up_rounds_remaining_balance_once(self):
+        r = compute({"financial_year": "2026-27", "purpose": "advance_tax", "regime": "old",
+                     "as_of_date": "2027-03-31", "expected_tax_credits": {"tds": 759_336},
+                     "income": {"other_sources": {"other": 3_648_831}},
+                     "taxes_paid": {"advance_tax": [{"date": "2027-03-16", "amount": 52_206}]}})
+        # 943,440 annual tax - 759,336 TDS - 52,206 paid = 131,898, rounded once.
+        plan = r["old"]["advance_tax"]
+        self.assertEqual(plan["annual_remaining"], 131_900)
+        self.assertEqual(plan["next_payment"]["amount"], 131_900)
+
     def test_partial_special_rate_relief_and_old_rebate(self):
         for fy, filing in (("2025-26", "2026-07-20"), ("2026-27", "2027-07-20")):
             r = compute({"financial_year": fy, "filing_date": filing,

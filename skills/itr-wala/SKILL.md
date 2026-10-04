@@ -1,7 +1,7 @@
 ---
 name: itr-wala
 description: >-
-  Prepare Indian income tax for FY 2025-26 (AY 2026-27) or FY 2026-27
+  File Indian income tax returns for FY 2025-26 (AY 2026-27), or plan FY 2026-27
   (Tax Year 2026-27), including current-year advance-tax estimates. Use when
   the user wants to file their ITR, compute or verify Indian income tax,
   compare the old vs new tax regime, read a Form 16, AIS, TIS or Form 26AS,
@@ -60,8 +60,8 @@ relative to this SKILL.md. Resolve the skill directory once at the start
    visible in AIS gets declared even if the user would rather forget it.
 7. **Income-year guard.** Support only FY 2025-26 and FY 2026-27. Set
    `financial_year` explicitly in every new input and keep separate workspaces
-   for separate years. Unknown years, ITR-U and revised returns are unsupported.
-   Never infer the year from today's date, an AY label or the deadline mentioned.
+   for each year and purpose. Unknown years, ITR-U and revised returns are unsupported.
+   You may propose the year/purpose from the request, but never set them without confirmation.
    The engine's legacy default exists for old JSON files, not for new sessions.
    For FY 2026-27, select the 2025 Act and TY 2026-27; never invent AY 2027-28.
 8. **Scope guard.** Resident individuals only. If you detect: non-resident /
@@ -69,7 +69,7 @@ relative to this SKILL.md. Resolve the skill directory once at the start
    (Form 67/DTAA), ESOP perquisite deferral, buyback capital-loss twin
    entries or FY 2026-27 buybacks, SGB exemption questions, business-trust
    distribution classification, property sale with the indexation option,
-   agricultural income above 5,000 (partial integration is not modeled),
+   44AE goods-carriage income, agricultural income above 5,000 (partial integration is not modeled),
    or an unsupported income year -
    tell the user which part is out of scope and recommend a CA for that
    part. Compute what is safely computable; never quietly approximate the
@@ -97,10 +97,14 @@ relative to this SKILL.md. Resolve the skill directory once at the start
 
 - Greet briefly. State: what you can do, the privacy note from rule 9, and
   that nothing is ever submitted without the user doing it themselves.
-- First ask: **"Which financial year: 2025-26 or 2026-27? Are you filing a
-  return or planning advance tax?"** Explain the dates: April 2025 to March
-  2026 versus April 2026 to March 2027. Confirm against the documents, then
-  write the answer to `work/progress.md` and `work/income.json`.
+- If the request names a year and task, propose them in one line for confirmation:
+  **"FY 2026-27, advance-tax planning. Correct?"** Otherwise ask which financial
+  year (2025-26 or 2026-27) and whether this is a return or advance-tax planning.
+  Explain April-to-March income periods if needed. Keep this conversational;
+  create the workspace in step 1, check document periods in step 2, build JSON in step 3.
+- For a current payment after a year has ended, use its return/self-assessment
+  workflow. Do not offer historical advance-tax planning as a current payment route.
+  Historical engine estimates remain available for explicit retrospective analysis.
 - **Self-test the engine** so the user can trust the math:
   `python3 <skill>/scripts/test_tax_engine.py` - expect `OK` from the golden
   test suite. If it fails, stop; the install is broken.
@@ -110,8 +114,8 @@ relative to this SKILL.md. Resolve the skill directory once at the start
 - Read `references/rates-fy<selected-year>.md`. Due dates depend on the
   taxpayer's business/audit status, not the form number alone. Check official
   notifications for extensions before quoting a deadline.
-- For advance tax, use `references/advance-tax.md` instead of the return
-  steps below. Ask the as-of date and full-year expected income and TDS/TCS.
+- For advance tax, complete step 1 before following `references/advance-tax.md`.
+  Ask the as-of date and full-year expected income and TDS/TCS.
   Do not ask for a final Form 16 while the income year is still running.
 - For a FY 2026-27 return, annual computation is supported, but the bundled
   form selector and portal walkthrough describe AY 2026-27 under the 1961
@@ -124,10 +128,10 @@ relative to this SKILL.md. Resolve the skill directory once at the start
 Create in the current directory:
 
 ```
-itr-wala-workspace/
+itr-wala-<financial-year>-<purpose>/
   docs/        # user drops documents here
   work/        # income.json, extraction-notes.md, progress.md
-  output/      # filing-pack.md, computation.txt, computation.json
+  output/      # filing-pack.md OR estimate-pack.md, computation.txt, computation.json
   .gitignore   # blocks tax documents from ever being committed
 ```
 
@@ -135,6 +139,11 @@ Write a `.gitignore` containing at minimum:
 `docs/`, `work/`, `output/`, `*AIS*`, `*TIS*`, `*26AS*`, `*Form16*`,
 `*form16*`, `*ITR*json`, `*ACK*`, `*Challan*`. (Pattern idea credited to the
 MIT-licensed file-itr project.)
+
+Use one workspace per confirmed year AND purpose. On resume, read its progress
+record and income.json; confirm both match the request before reusing any figures.
+Write the confirmed context to `work/progress.md`. For advance tax, now follow
+`references/advance-tax.md`; it uses the same private workspace and validator gate.
 
 ### 2. Gather documents
 

@@ -14,7 +14,13 @@
       "description": "FY 2025-26 returns and FY 2026-27 tax preparation: reads documents, compares regimes, reconciles TDS and plans advance tax. You always pay, submit and e-verify yourself.",
       "source": "./",
       "category": "productivity",
-      "tags": ["india", "tax", "itr", "finance"]
+      "tags": [
+        "india",
+        "tax",
+        "itr",
+        "finance",
+        "advance-tax"
+      ]
     }
   ]
 }

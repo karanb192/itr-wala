@@ -17,8 +17,8 @@ form number. See [Finance Act 2026 s.5](https://egazette.gov.in/WriteReadData/20
 | Belated return, s.139(4) | 31 Dec 2026 |
 | Revised return, s.139(5) | 31 Mar 2027 (extended by Finance Act 2026) |
 
-- Audit extension: [CBDT Circular 07/2026, announced 29 September](https://www.incometax.gov.in/iec/foportal/latest-news), audit report 21 October and return 21 November. Re-check official notifications before quoting any deadline; never carry an extension across years.
-- Belated/revised limits are also subject to earlier assessment completion. Revisions from 1 January to 31 March 2027 attract s.234I fee ₹1,000 up to ₹5L total income, ₹5,000 above it. Revised-return workflow/fees are unsupported. Sources: [Finance Act s.5/8](https://egazette.gov.in/WriteReadData/2026/271439.pdf), [ITR-2 FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/itr-2/itr-2-faqs).
+- Audit extension: [CBDT Circular 07/2026 dated 28 September, announced 29 September](https://www.incometax.gov.in/iec/foportal/latest-news), audit report 21 October and return 21 November. Re-check official notifications before quoting any deadline; never carry an extension across years.
+- Belated/revised limits are also subject to earlier assessment completion. Revisions from 1 January to 31 March 2027 attract s.234I fee ₹1,000 up to ₹5L total income, ₹5,000 above it. Revised-return workflow/fees are unsupported. Sources: [Finance Act s.5/16](https://egazette.gov.in/WriteReadData/2026/271439.pdf), [ITR-2 FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/itr-2/itr-2-faqs).
 - **Belated return regime lock (s.115BAC(6)):** once the s.139(1) due date passes, a no-business taxpayer can no longer opt for the old regime - the utility enforces new-regime-only for belated returns. The engine detects `filing_date > due_date`, warns, and forces its recommendation to the new regime even when the old computes cheaper.
 - Pass an explicitly verified `due_date`. The engine defaults to 2026-07-31 without business income, 2026-08-31 with supported presumptive income.
 
@@ -49,7 +49,7 @@ form number. See [Finance Act 2026 s.5](https://egazette.gov.in/WriteReadData/20
 | 20% band | 5L - 10L | 5L - 10L | 5L - 10L |
 | 30% | > 10L | > 10L | > 10L |
 
-- Standard deduction **50,000**; actual professional tax paid is deductible, without an invented ₹5,000 engine cap. Source: [s.16(iii), employment-tax deduction](https://wmstatic-prd.incometaxindia.gov.in/web/guest/w/employees-benefits-allowable).
+- Standard deduction **50,000**; actual professional tax paid is deductible, without an invented ₹5,000 engine cap. Source: [s.16(iii), employment-tax deduction](https://www.incometaxindia.gov.in/w/employees-benefits-allowable). Amounts above ₹2,500 trigger a validator warning to check arrears or multiple-State payments, not a deduction cap: [Constitution Article 276(2)](https://www.indiacode.nic.in/bitstream/123456789/19151/1/constitution_of_india.pdf).
 - **s.87A: 12,500 if total income ≤ 5,00,000** - a hard cliff, NO marginal relief (income 5,00,010 loses the entire rebate; the ≤ test is on the s.288A-rounded figure, so 5,00,004 still qualifies). Threshold tested on total income including special-rate income. Engine applies the rebate against all tax except: (a) 112A LTCG - statutory bar, s.112A(6); (b) VDA (115BBH) and winnings (115BB/BBJ) tax - no statutory bar, but no ruling supports the claim and the utility denies it, so the engine takes the safe posture and excludes them (with a warning). 87A **against 111A/112 tax is allowed in the old regime**: the Finance Act 2025 denial amended only the new-regime proviso, and Bombay HC (Chamber of Tax Consultants) plus ITAT rulings back the claim - but CPC has disputed it in processing and **CBDT Circular 13/2025 takes the department's side**, so the engine warns to verify the portal accepts the figure before filing.
 - **Basic-exemption absorption order vs 87A:** when unused basic exemption can absorb special-rate gains AND the rebate is in play, no fixed order is always cheapest (111A/112 tax is rebate-eligible, 112A tax is not) - the engine tries every order and keeps the lowest lawful tax.
 - Chapter VI-A caps the engine enforces: 80C 1,50,000; 80CCD(1B) 50,000; 80TTA 10,000 (<60y) / 80TTB 50,000 (seniors, savings+FD); 80CCD(2) at **10%** of Basic+DA for private employers under old regime (14% govt); s.24(b) self-occupied interest 2,00,000; house-property loss set-off vs other heads capped at 2,00,000 (s.71(3A)).
@@ -87,8 +87,8 @@ The 10%/15% tiers are tested on TOTAL income; the 25%/37% tiers are tested on to
 | s.115BBH | VDA/crypto | **30% flat** | cost of acquisition only; no loss set-off or carry-forward; no basic-exemption set-off; no 87A |
 | s.115BB / s.115BBJ | Lottery, game shows, online-game winnings | **30% flat** | schema field `other_sources.winnings`; TDS arrives u/s 194B/194BA; no basic-exemption set-off, no deductions, no 87A; NOT excluded from the 25%-tier surcharge test and NOT under the 15% surcharge ceiling |
 
-- Debt/"specified" MF units bought on/after 1 Apr 2023 (s.50AA): always short-term, slab rate → engine's `stcg_slab` bucket.
-- Residents may absorb unused basic exemption against 111A/112A/112 gains (never VDA). Engine absorbs highest-rate first: 111A → 112A → 112.
+- Qualifying specified MF units bought on/after 1 Apr 2023 (s.50AA): always short-term, slab rate → engine's `stcg_slab` bucket.
+- Residents may absorb unused basic exemption against 111A/112A/112 gains (never VDA). New regime absorbs highest-rate first; old regime evaluates the lawful orders because the rebate can change which is cheapest.
 - Chapter VI-A deductions cannot be set against special-rate CG/VDA income (engine enforces).
 
 ## Interest and fees

@@ -1,5 +1,6 @@
 # Never commit anyone's tax documents or generated filings
 itr-wala-workspace/
+itr-wala-fy*/
 *AIS*
 *26AS*
 *Form16*

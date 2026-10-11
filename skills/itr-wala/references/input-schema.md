@@ -4,7 +4,7 @@ When to read this: before writing or editing the `income.json` that you feed to 
 
 ## Iron rules
 
-1. **Transcribed figures only.** Every number must be readable off a document (Form 16, 26AS, AIS, broker P&L, interest certificate, challan). NEVER enter a derived number: no salary net of standard deduction, no LTCG minus the 1,25,000 exemption, no house-property income after the 30% deduction, no tax you computed. The engine does all arithmetic.
+1. **Evidence for returns; approved forecasts for advance tax.** Return figures come from final documents. Advance-tax figures may be full-year estimates supplied or explicitly approved by the user, with source, period and approval recorded. Never derive or guess a number with the model: no salary net of standard deduction, LTCG minus exemption, house-property income after deduction, or tax. Python does all arithmetic.
 2. Amounts are whole rupees, non-negative. Losses are never entered as negative income - the only loss the engine models is house property (via `interest_paid`).
 3. `validate_income.py` rejects unknown/misspelled keys (e.g. `80ccd2` instead of `80ccd_2`) - a typo would otherwise silently cost the user a deduction. Always run `python3 scripts/validate_income.py income.json` and fix to 0 errors before `python3 scripts/tax_engine.py income.json`.
 4. Old-regime-only fields (`exempt_allowances`, `professional_tax`, most `deductions`) still go in the file - the engine ignores them per regime and warns, which is how the both-regime comparison works.
@@ -13,11 +13,13 @@ When to read this: before writing or editing the `income.json` that you feed to 
 
 ```jsonc
 {
+  "financial_year": "2025-26",        // income earned April 2025 to March 2026
+  "purpose": "return",                // "return" | "advance_tax"
   "regime": "both",                    // "new" | "old" | "both" - leave "both" to compare regimes
   "age_category": "regular",           // "regular" | "senior" (60-79) | "super_senior" (80+)
   "residential_status": "resident",    // engine is resident-only; NRI/RNOR → stop, out of scope
   "name": "Asha Verma",
-  "due_date": "2026-07-31",            // AY 2026-27: ITR-1/2 → 2026-07-31; non-audit ITR-3/4 → 2026-08-31
+  "due_date": "2026-07-31",            // no business/profession; supported non-audit business: 2026-08-31
   "filing_date": "2026-07-28",         // defaults to today if omitted
   "income": {
     "salary": {
@@ -26,7 +28,7 @@ When to read this: before writing or editing the `income.json` that you feed to 
       "form16_17_2": 140000,           // perquisites u/s 17(2)
       "form16_17_3": 0,                // profits in lieu u/s 17(3); validator checks sum == gross
       "exempt_allowances": 320000,     // HRA/LTA exempt u/s 10 (Form 16 Part B) - old regime only
-      "professional_tax": 2400,        // s.16(iii) from Form 16/payslips - old regime only, engine caps at 5,000
+      "professional_tax": 2400,        // actual employment tax paid; old regime only
       "basic_plus_da": 960000          // annual basic+DA from payslips; optional, enables 80CCD(2) cap check
     },
     "house_property": [
@@ -67,21 +69,25 @@ This example triggers one expected validator warning (TDS claimed 3,55,000 diffe
 
 | Field | Meaning | Source document | Gotchas |
 |---|---|---|---|
+| `financial_year` | "2025-26" or "2026-27" | user and document period | Always explicit for new sessions. Legacy omission defaults to 2025-26 with a warning; unknown years rejected |
+| `purpose` | "return" (default) or "advance_tax" | user | Do not treat a current-year estimate as a filed return |
+| `as_of_date` | ISO date within selected FY | user | Required for advance tax; forbidden for return. Future challans cannot count as paid |
+| `expected_tax_credits.tds/tcs` | full-year expected credits | payroll forecast / user-approved estimate | Advance tax only. Separate from actual credits and source totals; each cannot be below the corresponding recorded credit. Missing estimate warns and uses recorded credits only |
 | `regime` | "new"/"old"/"both" (default "both") | user choice | keep "both" until the comparison is shown |
 | `age_category` | slab/80TTB/advance-tax age band | DOB | wrong band changes old slabs, 80TTB, 234B/C waiver |
 | `residential_status` | informational gate | user | anything non-resident → stop; engine can't file it |
-| `due_date` | statutory due date, ISO | form choice | engine default 2026-07-31; set 2026-08-31 for non-audit ITR-3/4 |
+| `due_date` | original statutory due date, ISO | taxpayer status and verified notification | Return only. Defaults to July 31 of the following year without business, August 31 with presumptive income. Confirm extensions; never copy dates between FYs |
 | `salary.gross` | 17(1)+17(2)+17(3) total | Form 16 Part B | gross, not "taxable salary"; standard deduction (75,000 new / 50,000 old) is engine-applied |
 | `salary.form16_17_1/2/3` | the three components | Form 16 Part B | optional but recommended; validator enforces sum == `gross` |
 | `salary.exempt_allowances` | s.10 exempt HRA/LTA etc. | Form 16 Part B annexure | old regime only; engine ignores + warns in new. Do NOT put gratuity/leave encashment here - those go in `exempt_retirement` |
 | `salary.exempt_retirement` | gratuity 10(10), commuted pension 10(10A), leave encashment 10(10AA), retrenchment 10(10B), VRS 10(10C) | Form 16 Part B s.10 annexure | exempt in BOTH regimes - these survive s.115BAC; engine deducts before the standard deduction |
-| `salary.professional_tax` | s.16(iii) | Form 16 / payslips | old only; engine caps 5,000 |
+| `salary.professional_tax` | s.16(iii) / s.19(1), Table 1 | year-specific certificate / payslips | actual paid amount, old only |
 | `salary.basic_plus_da` | annual basic + DA | payslips | optional; unlocks the 80CCD(2) cap check (14% new / 10% old private) |
-| `house_property[]` | `{type, rent_received, municipal_taxes, interest_paid}` | rent record, tax receipts, interest certificate | `type`: "self_occupied" or "let_out". Enter raw figures; engine does the 30% NAV deduction, the 2,00,000 s.24(b)/s.71(3A) caps (old) and zeroes it in new regime. Municipal taxes above rent are capped at the rent (s.24(a) - NAV never negative); if the engine warns, the figures likely have a transcription error |
+| `house_property[]` | `{type, rent_received, municipal_taxes, interest_paid}` | rent record, tax receipts, interest certificate | `type`: "self_occupied" or "let_out". Enter raw figures; engine does the 30% NAV deduction, the 2,00,000 s.24(b)/s.71(3A) caps (old) and zeroes it in new regime. Municipal taxes reduce annual value under s.23(1) proviso / s.21(3); this engine floors net annual value at zero; if the engine warns, the figures likely have a transcription error |
 | `capital_gains.stcg_111a` | STT equity/eq-MF ≤12m gains | broker tax P&L | taxed 20% (s.111A) |
 | `capital_gains.ltcg_112a` | STT equity/eq-MF >12m gains | broker tax P&L | enter FULL gain; engine applies 1,25,000 exemption and 12.5%. Aggregate across all brokers |
 | `capital_gains.ltcg_other` | s.112 LTCG (property, gold, unlisted) | sale deed / statements | engine uses flat 12.5% no-indexation; the 20%-with-indexation option for land/building acquired on/before 22-Jul-2024 is NOT modeled - flag to user if relevant |
-| `capital_gains.stcg_slab` | slab-rate gains | broker/AMC statements | debt MFs (s.50AA, units bought on/after 1-Apr-2023 are always slab-rate STCG), short-held gold, etc. |
+| `capital_gains.stcg_slab` | slab-rate gains | broker/AMC statements | specified funds (s.50AA, qualifying units bought on/after 1-Apr-2023 are slab-rate STCG), short-held gold, etc. |
 | `capital_gains.vda` | crypto/VDA gains, s.115BBH | exchange statement | sale minus cost of acquisition only; NEVER net losses against gains (no set-off); 30% flat, forces ITR-2/3 |
 | `other_sources.savings_interest` / `fd_interest` | bank interest | AIS + bank statements | the split matters: 80TTA (regular) counts savings only; 80TTB (seniors) counts both |
 | `other_sources.dividends` | dividend income | AIS / broker | must sit here, not in `other` - engine's 15% surcharge cap keys on this field |
@@ -90,6 +96,7 @@ This example triggers one expected validator warning (TDS claimed 3,55,000 diffe
 | `other_sources.other` | residual slab-rate income | varies | NOT for buyback (see capital-gains.md) and NOT for winnings (use `winnings`) |
 | `relief_89` (top level) | s.89(1) relief for salary arrears | Form 10E computation / Form 16 "relief u/s 89" | engine nets it after cess; Form 10E must be e-filed before the return |
 | `business_presumptive_income` | declared presumptive income (44AD/44ADA) | user's election | the one declared (not document) figure: e.g. 50% of 44ADA gross receipts as elected |
+| `presumptive_section` | "44AD" or "44ADA" | confirmed eligible election | stable identifiers in both FYs, corresponding to new s.58(2) Table 1/3; enables one March instalment even with other income. Requires positive business_presumptive_income. Legacy FY 2025-26 presumptive-only files retain one March instalment with a warning; other omissions use quarterly targets. 44AE rejected |
 | `deductions.80c/80ccd_1b/80d/80g/other` | Chapter VI-A claims | proof receipts | old regime only (engine warns in new). 80C capped 1,50,000; 80CCD(1B) 50,000; 80D and 80G NOT engine-capped - enter only the eligible amount |
 | `deductions.80ccd_2` | employer NPS | Form 16 | valid in BOTH regimes; capped at 14%/10% of `basic_plus_da` when that field is present |
 | `deductions.80tta_ttb` | savings-interest deduction | - | best OMITTED: engine auto-derives from the interest fields and applies 10,000/50,000 caps |
@@ -98,11 +105,41 @@ This example triggers one expected validator warning (TDS claimed 3,55,000 diffe
 
 ## Tricky placements
 
+For FY 2026-27 the same JSON keys are kept for compatibility; `stcg_111a`
+means equity STCG under s.196 and `ltcg_112a` means equity LTCG under s.198.
+Likewise `relief_89`, `rebate_87a` and `interest_and_fees.234A/B/C/F` are stable
+schema keys, not claims that the 1961 Act governs the new year. Engine metadata
+and text output identify the applicable law. Read [rates-fy2026-27.md](rates-fy2026-27.md)
+for the full counterpart table and form/transaction limits.
+
 - **Share buyback (1-Oct-2024 to 31-Mar-2026):** the FULL buyback consideration is deemed dividend u/s 2(22)(f), taxed at slab with no cost deduction. Put it in `other_sources.dividends` (it is dividend income, entitled to the 15% surcharge cap the engine keys on that field) and tell the user why - note it will make reported dividends exceed `ais_dividends`, which is expected here. The acquisition cost separately becomes a capital loss (consideration deemed nil u/s 46A) - the engine does not track losses/carry-forward, so record that loss for the ITR's Schedule CG/CFL manually.
-- **Debt mutual fund gains** (units acquired on/after 1-Apr-2023): always `capital_gains.stcg_slab`, whatever the holding period. Units bought before 1-Apr-2023 held >24m → `ltcg_other` at 12.5%.
+- **FY 2026-27 buybacks / SGB exemptions:** unsupported classification; never reuse the earlier-year dividend treatment or assume redemption is exempt. Read the selected-year rate card and refer that part for review.
+- **Specified mutual fund gains** (units acquired on/after 1-Apr-2023): `capital_gains.stcg_slab`, whatever the holding period. Verify the narrowed debt-fund definition and other holding periods in [capital-gains.md](capital-gains.md); neither a non-equity name nor an AIS code alone establishes this treatment.
 - **HRA:** never compute the exemption yourself if Form 16 already shows it - transcribe the employer's s.10 figure into `exempt_allowances`. If the employer missed HRA, the exemption is a genuine computation: do it outside the engine, show the working to the user, and note it is old-regime-only.
 - **Interest on let-out property:** goes in that property's `interest_paid` uncapped - the engine handles the loss-set-off cap.
 
 ## Why source_totals exists
 
 `source_totals` holds the headline totals exactly as printed on each document - Form 16 gross salary and total TDS, 26AS total TDS, AIS total TDS / savings interest / dividends. The engine never taxes these; the validator uses them to cross-check your extraction: Form 16 component sum vs `salary.gross`, TDS claimed vs 26AS (hard error if you claim more), AIS interest/dividends vs what `income` reports (hard error if you report less - omitting AIS-visible income invites a notice). Always fill it; leaving it empty downgrades the whole run to "unchecked extraction" and the validator says so.
+
+## Advance-tax example
+
+The bundled [example-advance-fy2026-27.json](../assets/example-advance-fy2026-27.json)
+is fictional, with other-source income and no salary, as of 10 December 2026. Its ₹20L annual income and ₹8,000 expected annual TDS are approved
+forecast stand-ins; recorded TDS is only ₹4,000, cross-checked against a current
+statement total. Paid June/September challans are actual-payment stand-ins.
+The engine shows the December target and next payment without a refund or
+future filing interest. Keep `due_date`, `filing_date` and `self_assessment` out
+of this mode. Follow [advance-tax.md](advance-tax.md).
+
+Return filing dates, including the default of today, must follow the selected
+income year and fall no later than 31 December of the following year. A later
+updated return may be possible but is unsupported. Prior assessment completion
+can close filing earlier; confirm that with the user.
+
+For planning, salary.gross is the approved annual forecast. Source totals retain
+their document periods; salary equality checks apply to returns, while planning
+emits a period-reconciliation warning. The output schedule separates
+`shortfall_at_deadline` from `outstanding_now`, with `paid_to_date` showing later
+payments. A fully covered plan has `next_payment: null`; otherwise it selects
+the first future unpaid target or a year-end top-up.

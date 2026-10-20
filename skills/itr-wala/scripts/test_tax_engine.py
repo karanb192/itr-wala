@@ -3,6 +3,7 @@ FY 2025-26 (AY 2026-27) rules. Run: python3 -m unittest test_tax_engine -v
 """
 
 import unittest
+from copy import deepcopy
 from datetime import date
 
 from tax_engine import compute as engine_compute
@@ -18,6 +19,80 @@ def new_liab(r):
 
 def old_liab(r):
     return r["old"]["tax"]["total_tax_liability"]
+
+
+class TestMixedPresumptiveVerification(unittest.TestCase):
+    def test_warning_covers_both_years_purposes_and_sections(self):
+        from tax_engine import render_table
+        for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
+            for purpose in ("return", "advance_tax"):
+                for label in ("44AD", "44ADA"):
+                    for other in ({"salary": {"gross": 1_500_000}},
+                                  {"other_sources": {"fd_interest": 200_000}},
+                                  {"capital_gains": {"ltcg_112a": 200_000}},
+                                  {"house_property": [{"type": "let_out", "rent_received": 200_000}]}):
+                        with self.subTest(fy=fy, purpose=purpose, label=label, other=other):
+                            inp = {"financial_year": fy, "purpose": purpose,
+                                   "income": dict(other, business_presumptive_income=3_000_000,
+                                                  presumptive_section=label)}
+                            inp.update({"filing_date": f"{year + 1}-07-20"} if purpose == "return"
+                                       else {"as_of_date": f"{year}-12-10"})
+                            r = compute(inp)
+                            review = r["verification_required"]
+                            self.assertEqual(review["regimes"], ["new", "old"])
+                            for regime in review["regimes"]:
+                                self.assertIn(review["message"], r[regime]["warnings"])
+                            rendered = render_table(r)
+                            self.assertLess(rendered.index("VERIFICATION REQUIRED"),
+                                            rendered.index("[NEW REGIME]"))
+                            self.assertEqual(rendered.count(review["message"]), 1)
+                            if fy == "2026-27":
+                                self.assertIn("TY 2026-27 utility treatment is unverified", review["message"])
+
+    def test_issue_probe_and_historical_replay_keep_arithmetic(self):
+        inp = {"regime": "new", "filing_date": "2026-07-31",
+               "income": {"salary": {"gross": 1_500_000},
+                          "business_presumptive_income": 800_000, "presumptive_section": "44AD"},
+               "taxes_paid": {"advance_tax": [{"date": "2026-03-10", "amount": 300_000}]}}
+        r = compute(inp)
+        self.assertEqual(r["new"]["interest_and_fees"]["234C"], 0)
+        self.assertEqual(r["verification_required"]["regimes"], ["new"])
+        self.assertEqual(r, compute(inp, today=date(2035, 10, 20)))
+        self.assertEqual(r["new"]["tax"]["total_tax_liability"], 266_500)
+
+    def test_no_warning_for_unaffected_inputs_or_credit_covered_liability(self):
+        for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
+            for purpose in ("return", "advance_tax"):
+                base = {"financial_year": fy, "purpose": purpose, "regime": "new",
+                        "income": {"business_presumptive_income": 3_000_000,
+                                   "presumptive_section": "44AD"}}
+                base.update({"filing_date": f"{year + 1}-07-20"} if purpose == "return"
+                            else {"as_of_date": f"{year}-12-10"})
+                self.assertNotIn("verification_required", compute(base))
+                salary = deepcopy(base)
+                salary["income"] = {"salary": {"gross": 3_000_000}}
+                self.assertNotIn("verification_required", compute(salary))
+                covered = deepcopy(base)
+                covered["income"]["salary"] = {"gross": 1_500_000}
+                credit_key = "expected_tax_credits" if purpose == "advance_tax" else "taxes_paid"
+                covered[credit_key] = {"tds": 2_000_000}
+                self.assertNotIn("verification_required", compute(covered))
+
+    def test_warning_only_lists_regimes_with_advance_tax_liability(self):
+        r = compute({"income": {"salary": {"gross": 500_000},
+                                 "business_presumptive_income": 500_000,
+                                 "presumptive_section": "44AD"}})
+        self.assertEqual(r["verification_required"]["regimes"], ["old"])
+
+    def test_legacy_optional_heads_and_single_property_remain_accepted(self):
+        for field in ("house_property", "capital_gains", "other_sources"):
+            inp = {"income": {"business_presumptive_income": 3_000_000,
+                              "presumptive_section": "44AD", field: None}}
+            self.assertNotIn("verification_required", compute(inp))
+        r = compute({"income": {"business_presumptive_income": 3_000_000,
+                                 "presumptive_section": "44AD",
+                                 "house_property": {"type": "let_out", "rent_received": 200_000}}})
+        self.assertEqual(r["verification_required"]["regimes"], ["new", "old"])
 
 
 class TestNewRegime(unittest.TestCase):

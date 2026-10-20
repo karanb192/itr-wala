@@ -779,10 +779,38 @@ def compute(inp, today=None):
     regimes = ("new", "old") if want == "both" else (want,)
     for rk in regimes:
         comp = compute_regime(inp, rk)
+        heads = comp["heads"]
+        mixed_presumptive = single_presumptive_instalment(inp) and any(
+            value > 0 for value in
+            [heads["salary"].get("net", 0), heads["other_sources"]["total"],
+             heads["other_sources"]["winnings"]]
+            + [p["income"] for p in heads["house_property"]["properties"]]
+            + list(heads["capital_gains"].values()))
         if purpose == "advance_tax":
             comp["advance_tax"] = compute_advance_plan(comp, inp, rules)
         else:
             comp["interest_and_fees"] = compute_interest_and_fee(comp, inp, today)
+        credits = (inp.get("expected_tax_credits", inp.get("taxes_paid") or {})
+                   if purpose == "advance_tax" else inp.get("taxes_paid") or {})
+        if (mixed_presumptive and comp["tax"]["total_tax_liability"]
+                - _pos(credits.get("tds")) - _pos(credits.get("tcs")) >= ADVANCE_TAX_MIN):
+            evidence = ("AY 2026-27 official utility calculation components charge early-quarter "
+                        "interest on other income."
+                        if rules["fy"] == "2025-26" else
+                        "Prior-year official utility calculation components split other income "
+                        "into early quarters. TY 2026-27 utility treatment is unverified.")
+            action = ("Confirm payment timing with a CA before relying on the March-only target."
+                      if purpose == "advance_tax" else
+                      "Reconcile instalment interest with the selected official return utility "
+                      "or a CA before using the final payable/refund or regime savings.")
+            message = ("Mixed presumptive and other income: the engine uses a statutory "
+                       f"March-only interpretation for {section(inp, 'deferment_interest')}. "
+                       f"{evidence} {action}")
+            comp["warnings"].append(message)
+            review = result.setdefault("verification_required", {
+                "reason": "mixed_presumptive_income", "regimes": [], "message": message,
+                "evidence": "https://github.com/karanb192/itr-wala/issues/19"})
+            review["regimes"].append(rk)
         if business and not single_presumptive_instalment(inp):
             comp["warnings"].append("Presumptive section not supplied: using quarterly advance-tax "
                                     "instalments. Confirm eligibility and set presumptive_section "
@@ -907,6 +935,11 @@ def render_table(result):
     add(result["act"])
     if result["purpose"] == "advance_tax":
         add("ADVANCE-TAX ESTIMATE - not a return or refund calculation")
+    review = result.get("verification_required")
+    if review:
+        add("VERIFICATION REQUIRED (" + ", ".join(review["regimes"]).upper() + ")")
+        add(review["message"])
+        add(review["evidence"])
     add("=" * 64)
     for rk in ("new", "old"):
         if rk not in result:
@@ -977,6 +1010,8 @@ def render_table(result):
         add("\nChoose ONE payment plan after confirming the regime you can legally use.")
         add("A cheaper comparison does not establish eligibility to switch regimes.")
     warn = set(result.get("new", {}).get("warnings", []) + result.get("old", {}).get("warnings", []))
+    if review:
+        warn.discard(review["message"])
     if warn:
         add("\nNotes:")
         for w in sorted(warn):

@@ -89,7 +89,7 @@ itr-wala splits the work the way it should be split:
 
 The math is defended in three layers, all shipped in the repo and run in CI on every commit:
 
-1. **88 tax tests** with hand-derived rupee expectations: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
+1. **93 tax tests** covering hand-derived rupee expectations and output guards: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
 2. **131 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
 3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. A fresh 360,000-case sweep (90,000 per combination, seed 42) passed on the revised engine. The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
 
@@ -196,6 +196,12 @@ write its record, the skill skips the invitation.
 For FY 2026-27, annual computation works after year end; notified return forms
 and the official utility must be checked before producing a portal field map.
 Revised returns and their fees remain unsupported.
+
+**Presumptive income plus salary, rent, interest or gains needs an extra check.**
+The engine flags affected results for external verification. Official AY 2026-27
+calculation components charge interest that its March-only interpretation can
+miss. Reconcile interest before filing, and confirm payment timing before relying
+on a March-only plan. [Evidence and limits](docs/mixed-presumptive-interest.md).
 
 **Out of scope:** non-residents/RNOR, F&O/intraday, audit, foreign tax credit
 (Form 67/DTAA), ESOP deferral and the property indexation option. If your return

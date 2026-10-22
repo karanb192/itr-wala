@@ -59,8 +59,9 @@ total income exceeds ₹12 lakh. Recompute a user-approved scenario before the s
 do not predict gains. See [the rebate correction](../../../docs/rebate-correction.md).
 
 Standard cumulative targets are 15%, 45%, 75%, 100% by 15 June, 15 September,
-15 December and 15 March. Eligible presumptive taxpayers use one 100% March
-instalment even with other income (old s.211(1)(b)/234C(1)(b), new s.408(2)).
+15 December and 15 March. The engine interprets the eligible presumptive rule as
+one 100% March instalment, including other income (old s.211(1)(b)/234C(1)(b),
+new s.408(2)). Mixed-income results require the verification described next.
 Resident seniors without business/professional income are exempt under s.403(3)
 of the 2025 Act, not s.404. Section 404 sets the ₹10,000 threshold, s.405 governs
 credits and s.408 the schedule.
@@ -68,8 +69,22 @@ Sources: [old advance-tax guidance](https://incometaxindia.gov.in/Tutorials/31.%
 [amended 2025 Act](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf),
 [2025 Act Gazette, ss.403/408](https://egazette.gov.in/WriteReadData/2025/265620.pdf),
 [1961 Act ss.211/234C explained by CBDT, paragraph 72](https://www.incometaxindia.gov.in/documents/20117/6507196/Circular2_2018.pdf/61ce9ca1-09f6-df86-d049-0ded12a4ee08?t=1762868291859).
-Portal/CPC instalment-interest calculations for presumptive plus other income
-have not been checked.
+
+### Mixed-income verification
+
+AY 2026-27 official utility calculation components split other income into the
+early quarters. That differs from the engine's taxpayer-wide March interpretation.
+The inspected ITR-3 and ITR-4 calculations also differ in rounding.
+See the [reproduction and limits](../../../docs/mixed-presumptive-interest.md).
+
+When `verification_required` appears, explain the limitation before the plan.
+Do not tell a mixed-income taxpayer that all payments can safely wait until March.
+Ask for a CA-confirmed schedule for the selected year before recommending a payment.
+Keep annual tax estimates available and record the external advice separately.
+For a return, reconcile interest with its official utility or a CA before treating
+payable/refund and regime savings as final. A component probe does not establish
+full-return or CPC parity. AY 2026-27 evidence does not establish TY 2026-27 utility
+behavior.
 
 The plan includes surcharge and cess but excludes future filing fees, historical
 interest assessment and refunds. `shortfall_at_deadline` compares a target with

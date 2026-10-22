@@ -63,8 +63,11 @@ It does not calculate future filing interest/fees or an estimated refund.
 | 75% | 15 December 2026 |
 | 100% | 15 March 2027 |
 
-Eligible s.58(2), Table 1/3 presumptive taxpayers pay 100% by 15 March, including
-those with other income. Seniors with no business/profession are exempt; net
+The engine reads s.408(2) as requiring eligible s.58(2), Table 1/3 presumptive
+taxpayers to pay 100% by 15 March, including those with other income.
+For mixed income, follow [external verification](advance-tax.md#mixed-income-verification)
+before relying on that target. Prior-year utility components split the schedule;
+TY 2026-27 utility treatment remains unverified. Seniors with no business/profession are exempt; net
 liability below ₹10,000 requires no advance tax. Payments by 31 March count
 as advance tax but do not erase instalment default. Source:
 [s.403(3) exemption, s.404 threshold, s.405 credits and s.408 schedule](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf),

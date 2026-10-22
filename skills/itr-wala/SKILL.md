@@ -218,6 +218,13 @@ Present to the user:
 - Explanations of *why* (use the selected year's rate card to narrate -
   never to recompute).
 
+If `verification_required` appears, explain it before presenting payment amounts.
+Mixed presumptive and other income needs external instalment-interest verification.
+Keep the engine figures as provisional estimates. Do not call the return ready,
+recommend payment, or treat the regime savings as final until the selected official
+utility calculation or a CA resolves the difference. Record that evidence separately;
+never invent an interest adjustment. See [advance-tax.md](references/advance-tax.md#mixed-income-verification).
+
 ### 7. Pick the form & set dates
 
 For FY 2025-26, use `references/form-selector.md`. For FY 2026-27, use only

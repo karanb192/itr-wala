@@ -18,9 +18,19 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+
 from datetime import date
 
 from validate_income import check as validator_check
+
+
+class TestIdentityVariants(unittest.TestCase):
+    def test_lowercase_pan_and_formatted_aadhaar(self):
+        for value in ("abcde1234f", "AbCdE1234f", "1234 5678 9012", "1234-5678-9012"):
+            with self.subTest(value=value):
+                errors, _ = vcheck_raw('{"name": "' + value + '"}')
+                self.assertTrue(any("redact" in e for e in errors), errors)
 
 
 def check(inp, raw="", today=date(2026, 7, 20)):

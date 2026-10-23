@@ -1,6 +1,6 @@
 """Golden tests for the document-extraction tooling - decrypt_ais.py,
 unzip_26as.py, parse_26as.py, redact_ais.py, extract_tis.py, shape.py,
-ais_schema.py and blind_copy.py.
+ais_schema.py, blind_copy.py and decrypt_pdf.py.
 Run: python3 test_extraction.py  (or python3 -m unittest test_extraction -v)
 
 Two properties are locked here, because both have failed in practice and
@@ -30,6 +30,10 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from unittest.mock import patch
+from pathlib import Path
+import stat
+import zipfile
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -37,14 +41,93 @@ sys.path.insert(0, SCRIPT_DIR)
 import ais_schema
 import blind_copy
 import decrypt_ais
+import decrypt_pdf
 import extract_tis
 import parse_26as
 import redact_ais
 import shape
 import unzip_26as
+from private_output import write_private
 
 HAVE_ZIP = shutil.which("zip") is not None
 HAVE_OPENSSL = shutil.which("openssl") is not None
+
+
+class TestPrivateDocuments(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "POSIX permissions")
+    def test_output_replaces_public_file_with_private_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "private.txt"
+            path.write_bytes(b"old")
+            path.chmod(0o644)
+            write_private(path, b"sensitive")
+            self.assertEqual(path.read_bytes(), b"sensitive")
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            self.assertEqual(list(Path(tmp).iterdir()), [path])
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permissions")
+    def test_unencrypted_zip_output_is_private(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "data.zip"
+            with zipfile.ZipFile(archive, "w") as zf:
+                zf.writestr("26AS.txt", "TDS^100")
+                zf.writestr("nested/26AS.txt", "TDS^200")
+            out = Path(tmp) / "output"
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(unzip_26as.main(["unzip_26as.py", str(archive), str(out)]), 0)
+            self.assertEqual(stat.S_IMODE((out / "26AS.txt").stat().st_mode), 0o600)
+            self.assertEqual((out / "26AS.txt").read_text(), "TDS^100")
+            self.assertEqual((out / "nested/26AS.txt").read_text(), "TDS^200")
+            self.assertEqual(stat.S_IMODE((out / "nested/26AS.txt").stat().st_mode), 0o600)
+
+    def test_missing_openssl_is_not_a_password_error(self):
+        from contextlib import redirect_stderr
+        with tempfile.TemporaryDirectory() as tmp:
+            src = write(tmp, "encrypted.json", "00" * 32 + "AAAA")
+            err = io.StringIO()
+            with patch.object(decrypt_ais.getpass, "getpass", side_effect=["ABCDE1234F", "01011990"]), \
+                    patch.object(decrypt_ais.subprocess, "run", side_effect=FileNotFoundError), \
+                    redirect_stdout(io.StringIO()), redirect_stderr(err):
+                self.assertEqual(decrypt_ais.main(["decrypt_ais.py", src]), 1)
+            self.assertIn("OpenSSL not found", err.getvalue())
+            self.assertNotIn("DOB is wrong", err.getvalue())
+            self.assertFalse((Path(tmp) / "AIS-decrypted.json").exists())
+
+    def test_pdf_password_only_uses_stdin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dst = Path(tmp) / "output.pdf"
+            result = subprocess.CompletedProcess([], 0, stdout=b"%PDF-1.7\nfixture", stderr=b"")
+            with patch.object(decrypt_pdf.getpass, "getpass", return_value="fictional-secret"), \
+                    patch.object(decrypt_pdf.subprocess, "run", return_value=result) as run_qpdf, \
+                    redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(decrypt_pdf.main(["decrypt_pdf.py", "input.pdf", str(dst)]), 0)
+            self.assertNotIn("fictional-secret", str(run_qpdf.call_args.args))
+            self.assertNotIn("fictional-secret", output.getvalue())
+            self.assertEqual(run_qpdf.call_args.kwargs["input"], b"fictional-secret\n")
+            self.assertIn("--password-file=-", run_qpdf.call_args.args[0])
+            self.assertEqual(dst.read_bytes(), result.stdout)
+
+    @unittest.skipUnless(shutil.which("qpdf"), "qpdf not on PATH")
+    def test_real_pdf_round_trip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            empty, encrypted, output = [str(Path(tmp) / x) for x in ("empty.pdf", "in.pdf", "out.pdf")]
+            subprocess.run(["qpdf", "--empty", empty], check=True, capture_output=True)
+            subprocess.run(["qpdf", "--encrypt", "fictional-password", "fictional-owner",
+                            "256", "--", empty, encrypted], check=True, capture_output=True)
+            with patch.object(decrypt_pdf.getpass, "getpass", return_value="fictional-password"), \
+                    redirect_stdout(io.StringIO()):
+                self.assertEqual(decrypt_pdf.main(["decrypt_pdf.py", encrypted, output]), 0)
+            check = subprocess.run(["qpdf", "--is-encrypted", output], capture_output=True)
+            self.assertEqual(check.returncode, 2)
+
+    @unittest.skipUnless(HAVE_OPENSSL and os.name == "posix", "OpenSSL and POSIX permissions")
+    def test_ais_decrypted_json_is_private(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = write(tmp, "ais.json", make_ais_blob(b'{"AISData":{}}', "ABCDE1234F", "01011990"))
+            with patch.object(decrypt_ais.getpass, "getpass", side_effect=["ABCDE1234F", "01011990"]), \
+                    redirect_stdout(io.StringIO()):
+                self.assertEqual(decrypt_ais.main(["decrypt_ais.py", src]), 0)
+            self.assertEqual(stat.S_IMODE((Path(tmp) / "AIS-decrypted.json").stat().st_mode), 0o600)
 
 # Identifying strings that must never survive into output.
 PAYER_A = "SOME LARGE COMPANY LIMITED"

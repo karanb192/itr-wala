@@ -271,6 +271,8 @@ Project-scoped discovery is well established for Claude Code (`.claude/skills/`)
 
 Requirements: `python3` 3.9+ (stdlib only - zero pip installs), `git` only if you let the installer fetch rather than running it from a checkout.
 
+Document helpers also use **OpenSSL** for encrypted AIS JSON, **pdftotext** (Poppler) for TIS PDFs, and **qpdf** for encrypted PDFs. The tax engine needs none of these. On macOS: `brew install openssl poppler qpdf`; on Debian/Ubuntu: `sudo apt install openssl poppler-utils qpdf`. Use `scripts/decrypt_pdf.py` for a hidden password prompt, then `scripts/extract_tis.py` on its output.
+
 ## Install from a branch you reviewed
 
 This tool reads your Form 16, AIS, bank interest and capital gains. For something in that position, "I read the code once" only means something if **the code you read is the code that runs**. A `curl … | bash` one-liner cannot give you that - it installs whatever is on `main` at the moment you run it, from a repo you do not control, and re-decides that question on every update. That is true of this repo as much as any other.
@@ -336,7 +338,7 @@ It's filing season - bug reports get priority, wrong-rate reports get top priori
 
 ## License
 
-MIT - see [LICENSE](LICENSE). Reference material adapted from the MIT-licensed [file-itr](https://github.com/shivprime94/file-itr).
+MIT - see [LICENSE](LICENSE). Reference material adapted from the MIT-licensed [file-itr](https://github.com/shivprime94/file-itr); see [NOTICE.md](NOTICE.md) for attribution.
 
 ## Disclaimer
 

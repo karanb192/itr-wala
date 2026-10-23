@@ -27,8 +27,8 @@ from tax_years import context_errors, fy_dates, year_rules, section
 if sys.version_info < (3, 9):
     sys.exit("itr-wala needs Python 3.9 or newer (found %d.%d)." % sys.version_info[:2])
 
-PAN_RE = re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b")
-AADHAAR_RE = re.compile(r"\b\d{12}\b")
+PAN_RE = re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b", re.IGNORECASE)
+AADHAAR_RE = re.compile(r"\b(?:\d{12}|\d{4}[ -]\d{4}[ -]\d{4})\b")
 
 # Canonical input schema: nested dict of key -> type ("num", "str", "list", dict)
 SCHEMA = {

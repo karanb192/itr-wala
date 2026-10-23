@@ -24,6 +24,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from private_output import write_private
+
 if sys.version_info < (3, 9):
     sys.exit("itr-wala needs Python 3.9 or newer (found %d.%d)."
              % sys.version_info[:2])
@@ -89,10 +91,17 @@ def main(argv):
         try:
             plain = decrypt(blob, candidate, dob)
             data = json.loads(plain)
-        except Exception:
+        except FileNotFoundError:
+            print("OpenSSL not found. Install openssl and retry; PAN/DOB were not checked.",
+                  file=sys.stderr)
+            return 1
+        except OSError as exc:
+            print(f"Cannot run OpenSSL: {exc}", file=sys.stderr)
+            return 1
+        except (ValueError, UnicodeDecodeError):
             continue
 
-        dst.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+        write_private(dst, json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8"))
         print(f"\n[ok] Decrypted with {label} PAN.")
         print(f"[ok] Wrote {dst}  ({dst.stat().st_size:,} bytes)")
         top = list(data)[:8] if isinstance(data, dict) else f"array[{len(data)}]"

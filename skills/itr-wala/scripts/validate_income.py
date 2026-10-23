@@ -37,6 +37,7 @@ SCHEMA = {
     "as_of_date": "str",        # advance-tax planning only
     "expected_tax_credits": {"tds": "num", "tcs": "num"},
     "regime": "str",            # "new" | "old" | "both" (default both)
+    "business_regime": "str",   # confirmed legal regime, not the preferred calculation
     "age_category": "str",      # "regular" | "senior" | "super_senior"
     "relief_89": "num",         # s.89(1) relief per Form 10E computation
     "residential_status": "str",  # informational; engine supports resident only
@@ -50,6 +51,7 @@ SCHEMA = {
                                          # u/s 10(10)/(10A)/(10AA)/(10B)/(10C) - both regimes
             "professional_tax": "num",
             "basic_plus_da": "num",      # optional, enables 80CCD(2) cap check
+            "employer_type": "str",      # "government" | "other"; old-regime NPS cap
             "form16_17_1": "num", "form16_17_2": "num", "form16_17_3": "num",
         },
         "house_property": "list",        # [{type, rent_received, municipal_taxes, interest_paid}]
@@ -255,6 +257,22 @@ def check(inp, raw="", today=None):
     st = _dct(inp.get("source_totals"))
     tp = _dct(inp.get("taxes_paid"))
     business = inc.get("business_presumptive_income", 0)
+    deductions = _dct(inp.get("deductions"))
+    ccd2 = deductions.get("80ccd_2", 0)
+    if _is_num(ccd2) and ccd2 > 0:
+        if "basic_plus_da" not in sal:
+            warnings.append("Employer NPS is unverified without income.salary.basic_plus_da. "
+                            "Legacy input remains readable; supply the salary base before filing or payment.")
+        if inp.get("regime") != "new" and "employer_type" not in sal:
+            warnings.append("Confirm income.salary.employer_type for old-regime NPS: "
+                            "government (14%) or other (10%).")
+    medical = deductions.get("80d", 0)
+    if _is_num(medical) and medical > 100_000:
+        errors.append("deductions.80d exceeds the absolute 1,00,000 ceiling; "
+                      "supply the documented eligible amount, which may be lower")
+    if _is_num(business) and business > 0 and "business_regime" not in inp:
+        warnings.append("business_regime missing: verify the election/withdrawal history "
+                        "before using the regime recommendation.")
     if _is_num(business) and business > 0 and not inc.get("presumptive_section"):
         warnings.append("Confirm presumptive eligibility and set income.presumptive_section "
                         "to 44AD or 44ADA. Legacy FY 2025-26 presumptive-only files retain "

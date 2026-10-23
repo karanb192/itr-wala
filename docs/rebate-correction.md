@@ -77,7 +77,7 @@ Sources: [Finance Act 2026 ss.5 and 16](https://egazette.gov.in/WriteReadData/20
 
 Use the route you originally installed with. These commands fetch the published
 default branch; before release they cannot install the fix. After updating, run
-the self-test and confirm new computation JSON reports `engine_version: "1.3.0"`
+the self-test and confirm new computation JSON reports `engine_version: "1.3.1"` or later
 or later. Stop if it still reports 1.2.0.
 
 | Install route | Update |

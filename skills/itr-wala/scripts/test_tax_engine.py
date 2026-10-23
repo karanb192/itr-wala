@@ -22,6 +22,99 @@ def old_liab(r):
 
 
 class TestReviewedPropertyAndFeeCases(unittest.TestCase):
+    def cases(self, **fields):
+        for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
+            for purpose in ("return", "advance_tax"):
+                inp = {"financial_year": fy, "purpose": purpose, **deepcopy(fields)}
+                inp.update({"filing_date": f"{year+1}-09-15"} if purpose == "return"
+                           else {"as_of_date": f"{year}-12-10"})
+                yield inp
+
+    def test_business_election_survives_late_return(self):
+        from tax_engine import render_table
+        for inp in self.cases(income={"business_presumptive_income": 900_000,
+                                     "presumptive_section": "44ADA"}, business_regime="old"):
+            result = compute(inp)
+            self.assertEqual(result["comparison"]["recommended_regime"], "old")
+            self.assertGreater(result["comparison"]["old_total"], result["comparison"]["new_total"])
+            self.assertIn("APPLICABLE: OLD", render_table(result))
+            self.assertNotIn("CANNOT", render_table(result))
+            inp["business_regime"] = "new"
+            self.assertEqual(compute(inp)["comparison"]["recommended_regime"], "new")
+            del inp["business_regime"]
+            result = compute(inp)
+            self.assertTrue(result["comparison"]["conditional"])
+            self.assertIn("PROVISIONAL COMPARISON", render_table(result))
+            self.assertNotIn("RECOMMENDED:", render_table(result))
+
+    def test_loss_allocation_preserves_equity_gain_threshold(self):
+        for inp in self.cases(regime="old", income={
+                "house_property": [{"type": "let_out", "interest_paid": 200_000}],
+                "capital_gains": {"ltcg_112a": 200_000, "ltcg_other": 1_000_000}}):
+            result = compute(inp)
+            # (10L net gains - 1.25L equity threshold - 2.5L exemption) * 12.5% * 1.04.
+            self.assertEqual(old_liab(result), 81_250)
+            allocation = result["old"]["heads"]["house_property"]["capital_gains_setoff"]
+            self.assertEqual(sum(allocation.values()), 200_000)
+            self.assertLessEqual(allocation.get("112a", 0), 75_000)
+
+    def test_loss_allocation_handles_rebate_and_exhausted_gains(self):
+        for inp in self.cases(regime="old", income={
+                "house_property": [{"type": "let_out", "interest_paid": 200_000}],
+                "capital_gains": {"stcg_111a": 250_000, "ltcg_112a": 200_000, "ltcg_other": 200_000}}):
+            self.assertEqual(old_liab(compute(inp)), 0)
+            inp["income"]["capital_gains"] = {"ltcg_112a": 100_000}
+            result = compute(inp)
+            self.assertEqual(old_liab(result), 0)
+            self.assertEqual(result["old"]["heads"]["house_property"]["capital_gains_setoff"], {"112a": 100_000})
+
+    def test_nps_missing_basis_remains_readable_but_provisional(self):
+        from tax_engine import render_table
+        from validate_income import check
+        for inp in self.cases(income={"salary": {"gross": 2_000_000}}, deductions={"80ccd_2": 500_000}):
+            self.assertEqual(check(inp)[0], [])
+            result = compute(inp)
+            self.assertEqual(new_liab(result), 134_160)
+            self.assertTrue(result["new"]["input_verification_required"])
+            self.assertIn("INPUT VERIFICATION REQUIRED", render_table(result))
+            inp["income"]["salary"].update(basic_plus_da=1_000_000, employer_type="other")
+            result = compute(inp)
+            self.assertEqual(result["new"]["deductions"]["80ccd_2"], 140_000)
+            self.assertNotIn("input_verification_required", result["new"])
+            inp["income"]["salary"]["basic_plus_da"] = 0
+            self.assertEqual(compute(inp)["new"]["deductions"]["80ccd_2"], 0)
+
+    def test_government_nps_and_medical_ceiling(self):
+        for inp in self.cases(income={"salary": {"gross": 1_500_000, "basic_plus_da": 1_000_000,
+                                                "employer_type": "government"}},
+                              deductions={"80ccd_2": 140_000, "80d": 300_000}):
+            result = compute(inp)
+            self.assertEqual(result["old"]["deductions"]["80ccd_2"], 140_000)
+            self.assertEqual(result["old"]["deductions"]["80d"], 100_000)
+            self.assertNotIn("80d", result["new"]["deductions"])
+            inp["income"]["salary"]["employer_type"] = "other"
+            self.assertEqual(compute(inp)["old"]["deductions"]["80ccd_2"], 100_000)
+
+    def test_income_fuzz_holds_nps_ceiling_constant(self):
+        from fuzz_engine import apply_bump, run_case
+        inp = {"deductions": {"80ccd_2": 11}, "income": {
+            "capital_gains": {"ltcg_other": 357_135}, "other_sources": {"dividends": 887_520}}}
+        bumped = apply_bump(inp, "salary.gross", 28_158)
+        self.assertEqual(bumped["income"]["salary"]["basic_plus_da"], 0)
+        self.assertEqual(compute(inp)["new"]["deductions"], compute(bumped)["new"]["deductions"])
+        self.assertEqual(run_case(inp, "salary.gross", 28_158), [])
+
+    def test_slab_tax_uses_rounded_income(self):
+        for inp in self.cases(income={"salary": {"gross": 1_000_073}}):
+            result = compute(inp)
+            self.assertEqual(result["old"]["total_income"], 950_070)
+            self.assertEqual(old_liab(result), 106_610)
+            inp["income"] = {"salary": {"gross": 1_500_073}, "capital_gains": {"ltcg_112a": 125_001}}
+            result = compute(inp)
+            self.assertEqual(result["new"]["total_income"], 1_550_070)
+            self.assertEqual(result["new"]["tax"]["slab_income"], 1_425_069)
+            self.assertEqual(new_liab(result), 97_510)
+
     def test_self_occupied_cap_is_shared_before_rental_income(self):
         # s.24(b) / s.22(5): rent net 2.10L less aggregate SOP interest 2L.
         # Old taxable income 6.40L: (12,500 + 28,000) * 1.04 = 42,120.
@@ -847,10 +940,10 @@ class TestReviewRegressions(unittest.TestCase):
                      "as_of_date": "2027-03-31", "expected_tax_credits": {"tds": 759_336},
                      "income": {"other_sources": {"other": 3_648_831}},
                      "taxes_paid": {"advance_tax": [{"date": "2027-03-16", "amount": 52_206}]}})
-        # 943,440 annual tax - 759,336 TDS - 52,206 paid = 131,898, rounded once.
+        # TI 36,48,830 gives tax 9,43,430; less 7,59,336 and 52,206 = 1,31,888.
         plan = r["old"]["advance_tax"]
-        self.assertEqual(plan["annual_remaining"], 131_900)
-        self.assertEqual(plan["next_payment"]["amount"], 131_900)
+        self.assertEqual(plan["annual_remaining"], 131_890)
+        self.assertEqual(plan["next_payment"]["amount"], 131_890)
 
     def test_partial_special_rate_relief_and_old_rebate(self):
         for fy, filing in (("2025-26", "2026-07-20"), ("2026-27", "2027-07-20")):

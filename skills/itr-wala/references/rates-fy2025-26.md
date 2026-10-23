@@ -19,7 +19,7 @@ form number. See [Finance Act 2026 s.5](https://egazette.gov.in/WriteReadData/20
 
 - Audit extension: [CBDT Circular 07/2026 dated 28 September 2026](https://www.incometax.gov.in/iec/foportal/sites/default/files/2026-09/Circular-7-2026.pdf), audit report 21 October and return 21 November. Re-check official notifications before quoting any deadline; never carry an extension across years.
 - Belated/revised limits are also subject to earlier assessment completion. Revisions from 1 January to 31 March 2027 attract s.234I fee ₹1,000 up to ₹5L total income, ₹5,000 above it. Revised-return workflow/fees are unsupported. Sources: [Finance Act s.5/16](https://egazette.gov.in/WriteReadData/2026/271439.pdf), [ITR-2 FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/itr-2/itr-2-faqs).
-- **Belated return regime lock (s.115BAC(6)):** once the s.139(1) due date passes, a no-business taxpayer can no longer opt for the old regime - the utility enforces new-regime-only for belated returns. The engine detects `filing_date > due_date`, warns, and forces its recommendation to the new regime even when the old computes cheaper.
+- **Belated return regime lock (s.115BAC(6)):** a no-business taxpayer cannot opt for the old regime after the s.139(1) due date. Business filers depend on a valid timely election, including a continuing prior-year option. Set `business_regime` only after checking the election/withdrawal history; omission makes the comparison provisional. [Department FAQ, Q7/12/21](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/form%2010-iea-faq).
 - Pass an explicitly verified `due_date`. The engine defaults to 2026-07-31 without business income, 2026-08-31 with supported presumptive income.
 
 ## NEW regime (s.115BAC - the default)
@@ -102,7 +102,13 @@ The 10%/15% tiers are tested on TOTAL income; the 25%/37% tiers are tested on to
 
 ## Rounding
 
-- **s.288A**: total income rounded to the nearest 10. **s.288B**: tax payable/refund rounded to the nearest 10. Engine rounds half-up (`_r10`); allow ±10 vs the portal at intermediate lines.
+- **s.288A**: total income rounded to the nearest 10 before slab tax; the slab portion is the rounded total less special-rate income, floored at zero. Special-rate buckets are not independently rounded to tens. **s.288B**: tax payable/refund rounded to the nearest 10. [Statute](https://www.incometaxindia.gov.in/w/section-288a).
+
+Employer NPS uses `employer_type`: Central/State Government 14% in both regimes;
+other employers 10% old, 14% new. Missing salary basis or employer classification
+makes the affected output provisional. Medical-insurance claims have an absolute
+1,00,000 ceiling, with family-specific eligibility still supplied from evidence.
+[Department deduction limits](https://www.incometaxindia.gov.in/w/deductions).
 
 ## Sources
 

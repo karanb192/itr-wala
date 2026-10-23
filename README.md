@@ -61,6 +61,13 @@ also distinguishes these two legal years.
 
 ## Existing-user calculation correction
 
+**Version 1.3.1 corrects more edge cases in both supported years.** Recheck outputs
+with multiple self-occupied loans, a late fee after deductions, a business regime
+election, house-property losses against capital gains, employer NPS or large medical
+claims. Slab-income rounding also changes some results by ₹10.
+The [affected-input guide](docs/calculation-corrections-1.3.1.md) explains the fixes,
+provisional results and how to check an older return.
+
 Any install before 1.3.0, including plugins 1.2.0 and 1.2.1 or unversioned
 clone/skills.sh installs, could understate FY 2025-26 new-regime tax. Recheck if
 you had special-rate gains or winnings, total income above ₹12 lakh, and a rebate
@@ -190,7 +197,7 @@ write its record, the skill skips the invitation.
 
 ## What it covers (and refuses)
 
-**In scope (AY 2026-27, resident individuals):** salary (multiple employers, retirement exemptions like gratuity and leave encashment in both regimes), house property including s.71 loss set-off, equity/MF capital gains (111A/112A/112, grandfathering-aware exemption ordering), debt MF, crypto/VDA, lottery and online-game winnings (115BB/115BBJ), interest & dividends, family pension with the s.57(iia) deduction, s.89 arrears relief, eligible presumptive income (44AD/44ADA; 44AE excluded), supported Chapter VI-A deductions, both regimes, surcharge with marginal relief, advance-tax interest computed to actual challan dates, late fees, belated returns (including the s.115BAC(6) rule that locks belated filers out of the old regime - it will tell you, not let you find out from a notice), ITR-1/2/3/4 form selection.
+**In scope (AY 2026-27, resident individuals):** salary (multiple employers, retirement exemptions like gratuity and leave encashment in both regimes), house property including s.71 loss set-off, equity/MF capital gains (111A/112A/112, grandfathering-aware exemption ordering), debt MF, crypto/VDA, lottery and online-game winnings (115BB/115BBJ), interest & dividends, family pension with the s.57(iia) deduction, s.89 arrears relief, eligible presumptive income (44AD/44ADA; 44AE excluded), supported Chapter VI-A deductions, both regimes, surcharge with marginal relief, advance-tax interest computed to actual challan dates, late fees, belated returns (no-business old-regime lock; business elections checked separately), ITR-1/2/3/4 form selection.
 
 **FY 2026-27:** the same supported income categories have annual computation and advance-tax planning, with expected annual credits and dated payments.
 For FY 2026-27, annual computation works after year end; notified return forms

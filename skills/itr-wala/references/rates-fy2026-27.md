@@ -30,8 +30,8 @@ schema identifiers; `sections` and the rendered output identify the applicable l
 | Old slabs | Finance Act 2026 s.3(1), First Schedule Part I-B, Paragraph A; Part III for advance tax | Nil up to ₹2.5L / ₹3L / ₹5L by age; 5% up to ₹5L where applicable, 20% ₹5-10L, 30% above ₹10L |
 | Old rebate | s.156(1), s.198(7) | ₹12,500 up to ₹5L total income; no rebate against equity LTCG. Existing conservative VDA/winnings exclusion and special-gain portal warning remain |
 | Salary deductions | s.19(1), Table 1/2; s.202(2) | ₹75,000 standard new, ₹50,000 old; actual professional tax old only; eligible retirement exemptions both |
-| Employer NPS | s.124(1)/(2) | 14% basic+DA new; 10% old for private employers. Government old-regime 14% is not modelled; flag it |
-| Personal NPS, savings, health | s.124(3), s.123, s.126 | Old-only ₹50,000 personal NPS; ₹1.5L savings cap; health/other eligible amounts supplied with evidence, not automatically determined |
+| Employer NPS | s.124(1)/(2) | 14% eligible basic+DA new; 10% old for other employers, 14% old for Central/State Government. Set employer_type; missing basis/type makes output provisional |
+| Personal NPS, savings, health | s.124(3), s.123, s.126 | Old-only ₹50,000 personal NPS; ₹1.5L savings cap; health absolute ceiling ₹1L. Family-specific health/other eligible amounts still need evidence |
 | Deposit-interest deduction | s.153(2) | Old-only ₹10,000 savings interest for regular individuals, ₹50,000 eligible deposits for seniors |
 | House property | s.21(7), s.22(1)/(2), s.109(1)(b); s.202(2) | At most two self-occupied houses; 30% net annual value deduction; old self-occupied interest and inter-head loss cap ₹2L; new inter-head loss prohibited. Repair/pre-1999 loans require separate review |
 | Family pension | s.93(1)(d) | One-third deduction, capped ₹25,000 new / ₹15,000 old |
@@ -117,7 +117,7 @@ Source: [s.22(2)/(5)](https://www.incometaxindia.gov.in/w/section-22-211).
   exemption from the earlier year. SGB exemption classification is unsupported.
 - Loss carry-forwards, foreign income, RNOR/NRI, F&O/intraday, audit, property
   indexation caps and business-trust distribution classification remain out
-  of scope. Government NPS and statutory income-timing exceptions still need
+  of scope. Mixed employer categories and statutory income-timing exceptions still need
   external verification where the engine cannot express the facts.
 
 Sources: [Finance Act 2026 s.35(b)(A) removes buyback dividend treatment; s.42 changes s.69; s.43 changes SGB exemption](https://egazette.gov.in/WriteReadData/2026/271439.pdf)

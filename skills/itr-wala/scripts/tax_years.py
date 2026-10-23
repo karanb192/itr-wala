@@ -101,6 +101,21 @@ def single_presumptive_instalment(inp):
 
 def context_errors(inp, today=None):
     errors = []
+    income = inp.get("income")
+    if isinstance(income, dict):
+        salary = income.get("salary")
+        if isinstance(salary, dict) and "employer_type" in salary:
+            if salary["employer_type"] not in ("government", "other"):
+                errors.append("income.salary.employer_type must be 'government' or 'other'")
+        if "business_regime" in inp:
+            business = income.get("business_presumptive_income", 0)
+            if (not isinstance(business, (int, float)) or isinstance(business, bool)
+                    or not math.isfinite(business) or business <= 0):
+                errors.append("business_regime requires positive business_presumptive_income")
+    elif "business_regime" in inp:
+        errors.append("business_regime requires positive business_presumptive_income")
+    if "business_regime" in inp and inp["business_regime"] not in ("old", "new"):
+        errors.append("business_regime must be 'old' or 'new', confirmed from election history")
     try:
         rules = year_rules(inp)
     except ValueError as e:

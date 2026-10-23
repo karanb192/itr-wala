@@ -21,6 +21,41 @@ def old_liab(r):
     return r["old"]["tax"]["total_tax_liability"]
 
 
+class TestReviewedPropertyAndFeeCases(unittest.TestCase):
+    def test_self_occupied_cap_is_shared_before_rental_income(self):
+        # s.24(b) / s.22(5): rent net 2.10L less aggregate SOP interest 2L.
+        # Old taxable income 6.40L: (12,500 + 28,000) * 1.04 = 42,120.
+        for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
+            for purpose in ("return", "advance_tax"):
+                inp = {"financial_year": fy, "purpose": purpose, "regime": "old",
+                       "income": {"salary": {"gross": 680_000}, "house_property": [
+                           {"type": "self_occupied", "interest_paid": 200_000},
+                           {"type": "self_occupied", "interest_paid": 200_000},
+                           {"type": "let_out", "rent_received": 300_000}]}}
+                inp.update({"filing_date": f"{year+1}-07-20"} if purpose == "return"
+                           else {"as_of_date": f"{year}-12-10"})
+                with self.subTest(fy=fy, purpose=purpose):
+                    result = compute(inp)
+                    self.assertEqual(old_liab(result), 42_120)
+                    self.assertEqual(result["old"]["heads"]["house_property"]["income"], 10_000)
+                    self.assertEqual(result, compute(inp, today=date(2035, 10, 20)))
+                    inp["income"]["house_property"].reverse()
+                    self.assertEqual(old_liab(compute(inp)), 42_120)
+
+    def test_fee_uses_income_before_chapter_deductions(self):
+        # s.139(1) / s.263(1): 3L before VI-A/VIII requires an old-regime return.
+        # Taxable income 2L fixes the late fee at 1,000, despite zero income tax.
+        for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
+            inp = {"financial_year": fy, "filing_date": f"{year+1}-09-15",
+                   "income": {"business_presumptive_income": 300_000,
+                              "presumptive_section": "44AD"},
+                   "deductions": {"80c": 100_000}}
+            with self.subTest(fy=fy):
+                result = compute(inp)
+                self.assertEqual(result["old"]["interest_and_fees"]["234F"], 1_000)
+                self.assertEqual(result["new"]["interest_and_fees"]["234F"], 0)
+
+
 class TestMixedPresumptiveVerification(unittest.TestCase):
     def test_warning_covers_both_years_purposes_and_sections(self):
         from tax_engine import render_table

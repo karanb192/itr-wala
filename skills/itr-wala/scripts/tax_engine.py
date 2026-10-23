@@ -167,16 +167,18 @@ def compute_house_property(inp, regime_key, warnings):
     if isinstance(props, dict):
         props = [props]
     total, detail, warned_24b = 0.0, [], False
+    self_occupied_remaining = 200_000
     for p in props:
         ptype = p.get("type", "self_occupied")
         interest = _pos(p.get("interest_paid"))
         if ptype == "self_occupied":
             if regime_key == "old":
-                allowed = min(interest, 200_000)
+                allowed = min(interest, self_occupied_remaining)
+                self_occupied_remaining -= allowed
                 income = -allowed
                 if interest > 30_000 and not warned_24b:
                     warned_24b = True
-                    warnings.append(f"{section(inp, 'home_loan_cap')}: the 2,00,000 self-occupied cap assumes a loan "
+                    warnings.append(f"{section(inp, 'home_loan_cap')}: the aggregate 2,00,000 cap across self-occupied properties assumes a loan "
                                     "taken on/after 1-Apr-1999 for purchase/construction "
                                     "completed within 5 years; for repair/renovation or "
                                     "pre-1999 loans the lawful cap is 30,000 - confirm the "
@@ -659,8 +661,8 @@ def compute_interest_and_fee(comp, inp, today=None):
                                   f"no advance-tax liability ({section(inp, 'senior_exemption')}); "
                                   f"{section(inp, 'advance_interest')}/{section(inp, 'deferment_interest')} waived.")
 
-    # 234F late fee (nil if total income is under the basic exemption limit)
-    if filing > due and comp["total_income"] > comp["basic_exemption"]:
+    # The filing obligation tests income before Chapter VI-A / VIII deductions.
+    if filing > due and comp["gross_total_income"] > comp["basic_exemption"]:
         out["234F"] = FEE_234F_LOW if comp["total_income"] <= FEE_234F_INCOME_CUTOFF else FEE_234F_HIGH
 
     # 234A: 1%/month on the unpaid balance from the day after the due date,

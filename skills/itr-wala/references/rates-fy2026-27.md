@@ -91,13 +91,20 @@ Verify extensions live. The engine defaults the original due date from business
 status and accepts an explicit verified `due_date`. Return computations use
 s.423/424/425 interest and s.428(a) late fee, with the same numerical conventions
 as the earlier year. Historical deferment interest still needs timing exceptions
-checked separately. Revised-return fees under s.428(b) are not modelled.
+checked separately. The income-based filing obligation tests income before
+Chapter VIII deductions; deductions below the basic exemption do not cancel a
+late fee. Other mandatory-filing conditions require separate verification.
+Revised-return fees under s.428(b) are not modelled.
 Source: [s.263 and ss.423-428](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf).
 
 Annual tax computation is supported. The bundled form selector and portal guide
 cover AY 2026-27 for FY 2025-26. Do not reuse them for TY 2026-27. Before filing,
 verify notified forms, the official utility and its field mapping. Until those
 are available and checked, deliver a computation only, not a portal filing pack.
+
+The self-occupied interest cap is aggregate across properties before combining
+rental income. The separate inter-head loss cap applies afterwards.
+Source: [s.22(2)/(5)](https://www.incometaxindia.gov.in/w/section-22-211).
 
 ## Changed transactions that require a separate review
 

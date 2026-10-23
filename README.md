@@ -96,9 +96,9 @@ itr-wala splits the work the way it should be split:
 
 The math is defended in three layers, all shipped in the repo and run in CI on every commit:
 
-1. **93 tax tests** covering hand-derived rupee expectations and output guards: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
-2. **131 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
-3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. A fresh 360,000-case sweep (90,000 per combination, seed 42) passed on the revised engine. The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
+1. **102 tax tests** covering hand-derived rupee expectations and output guards: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
+2. **133 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
+3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. The 1.3.0 engine passed a 360,000-case sweep (90,000 per combination, seed 42). The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
 
 The skill runs the golden suite in front of you before touching your return:
 

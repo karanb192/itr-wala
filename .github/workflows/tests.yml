@@ -36,3 +36,30 @@ jobs:
           python3 skills/itr-wala/scripts/tax_engine.py skills/itr-wala/assets/example-income.json > /dev/null
           python3 skills/itr-wala/scripts/validate_income.py skills/itr-wala/assets/example-advance-fy2026-27.json
           python3 skills/itr-wala/scripts/tax_engine.py skills/itr-wala/assets/example-advance-fy2026-27.json > /dev/null
+
+  windows-install:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the skill with the native Windows installer
+        shell: pwsh
+        run: |
+          $dest = Join-Path $env:RUNNER_TEMP "itr-wala-install-test"
+          .\install.ps1 -Project $dest all
+      - name: Assert every installed copy passes the golden suite
+        shell: pwsh
+        run: |
+          $dest = Join-Path $env:RUNNER_TEMP "itr-wala-install-test"
+          foreach ($agent in @(".claude", ".agents", ".gemini")) {
+            $test = Join-Path $dest "$agent\skills\itr-wala\scripts\test_tax_engine.py"
+            if (-not (Test-Path -LiteralPath $test)) {
+              throw "missing installed test: $test"
+            }
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "golden suite failed: $test"
+            }
+          }

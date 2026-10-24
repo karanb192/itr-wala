@@ -147,7 +147,8 @@ def main(argv):
         err = (exc.stderr or "").strip()
         if "password" in err.lower() or "encrypt" in err.lower():
             print("PDF is still encrypted - decrypt it first:\n"
-                  "  qpdf --password='<PAN><DDMMYYYY>' --decrypt in.pdf out.pdf",
+                  "  python3 decrypt_pdf.py in.pdf out.pdf\n"
+                  "Enter the lowercase PAN + DDMMYYYY at the hidden prompt yourself.",
                   file=sys.stderr)
         else:
             print(f"pdftotext failed: {err}", file=sys.stderr)

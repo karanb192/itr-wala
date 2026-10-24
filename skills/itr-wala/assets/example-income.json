@@ -13,6 +13,7 @@
       "exempt_allowances": 240000,
       "professional_tax": 2400,
       "basic_plus_da": 1200000,
+      "employer_type": "other",
       "form16_17_1": 2300000,
       "form16_17_2": 100000,
       "form16_17_3": 0

@@ -29,7 +29,8 @@ When to read this: before writing or editing the `income.json` that you feed to 
       "form16_17_3": 0,                // profits in lieu u/s 17(3); validator checks sum == gross
       "exempt_allowances": 320000,     // HRA/LTA exempt u/s 10 (Form 16 Part B) - old regime only
       "professional_tax": 2400,        // actual employment tax paid; old regime only
-      "basic_plus_da": 960000          // annual basic+DA from payslips; optional, enables 80CCD(2) cap check
+      "basic_plus_da": 960000,         // eligible annual basic+DA from payslips; needed to verify employer NPS
+      "employer_type": "other"         // "government" = Central/State Government; all other employers = "other"
     },
     "house_property": [
       { "type": "self_occupied", "interest_paid": 185000 }  // lender's interest certificate, full amount
@@ -46,7 +47,7 @@ When to read this: before writing or editing the `income.json` that you feed to 
   },
   "deductions": {
     "80c": 150000,                     // sum of proofs (EPF+ELSS+LIC...); engine caps at 1,50,000
-    "80d": 28000                       // ELIGIBLE amount within s.80D caps - engine does NOT cap 80D
+    "80d": 28000                       // documented ELIGIBLE amount; absolute ceiling 1,00,000, family limits can be lower
   },
   "taxes_paid": {
     "tds": 355000,                     // 26AS grand total, ALL deductors (here employer 3,42,000 + bank 13,000)
@@ -74,6 +75,7 @@ This example triggers one expected validator warning (TDS claimed 3,55,000 diffe
 | `as_of_date` | ISO date within selected FY | user | Required for advance tax; forbidden for return. Future challans cannot count as paid |
 | `expected_tax_credits.tds/tcs` | full-year expected credits | payroll forecast / user-approved estimate | Advance tax only. Separate from actual credits and source totals; each cannot be below the corresponding recorded credit. Missing estimate warns and uses recorded credits only |
 | `regime` | "new"/"old"/"both" (default "both") | user choice | keep "both" until the comparison is shown |
+| `business_regime` | "old" or "new", legally in force for this year | confirmed election/withdrawal history | Only with positive presumptive income. This is not a preference. Missing history keeps legacy files readable but makes comparisons provisional. A valid old-regime business election can survive a late return |
 | `age_category` | slab/80TTB/advance-tax age band | DOB | wrong band changes old slabs, 80TTB, 234B/C waiver |
 | `residential_status` | informational gate | user | anything non-resident → stop; engine can't file it |
 | `due_date` | original statutory due date, ISO | taxpayer status and verified notification | Return only. Defaults to July 31 of the following year without business, August 31 with presumptive income. Confirm extensions; never copy dates between FYs |
@@ -82,7 +84,8 @@ This example triggers one expected validator warning (TDS claimed 3,55,000 diffe
 | `salary.exempt_allowances` | s.10 exempt HRA/LTA etc. | Form 16 Part B annexure | old regime only; engine ignores + warns in new. Do NOT put gratuity/leave encashment here - those go in `exempt_retirement` |
 | `salary.exempt_retirement` | gratuity 10(10), commuted pension 10(10A), leave encashment 10(10AA), retrenchment 10(10B), VRS 10(10C) | Form 16 Part B s.10 annexure | exempt in BOTH regimes - these survive s.115BAC; engine deducts before the standard deduction |
 | `salary.professional_tax` | s.16(iii) / s.19(1), Table 1 | year-specific certificate / payslips | actual paid amount, old only |
-| `salary.basic_plus_da` | annual basic + DA | payslips | optional; unlocks the 80CCD(2) cap check (14% new / 10% old private) |
+| `salary.basic_plus_da` | eligible annual basic + DA forming part of retirement benefits | payslips | Needed to verify employer NPS. Legacy omission stays readable with a provisional warning; gross salary supplies only an upper bound. Explicit zero gives a zero cap |
+| `salary.employer_type` | "government" or "other" | employer record | Central/State Government: 14% NPS in both regimes. Other employers: 10% old, 14% new. Missing type retains the legacy 10% old assumption with verification required. Mixed employer categories require separate external verification |
 | `house_property[]` | `{type, rent_received, municipal_taxes, interest_paid}` | rent record, tax receipts, interest certificate | `type`: "self_occupied" or "let_out". Enter raw figures; engine does the 30% NAV deduction, the 2,00,000 s.24(b)/s.71(3A) caps (old) and zeroes it in new regime. Municipal taxes reduce annual value under s.23(1) proviso / s.21(3); this engine floors net annual value at zero; if the engine warns, the figures likely have a transcription error |
 | `capital_gains.stcg_111a` | STT equity/eq-MF ≤12m gains | broker tax P&L | taxed 20% (s.111A) |
 | `capital_gains.ltcg_112a` | STT equity/eq-MF >12m gains | broker tax P&L | enter FULL gain; engine applies 1,25,000 exemption and 12.5%. Aggregate across all brokers |
@@ -97,8 +100,8 @@ This example triggers one expected validator warning (TDS claimed 3,55,000 diffe
 | `relief_89` (top level) | s.89(1) relief for salary arrears | Form 10E computation / Form 16 "relief u/s 89" | engine nets it after cess; Form 10E must be e-filed before the return |
 | `business_presumptive_income` | declared presumptive income (44AD/44ADA) | user's election | the one declared (not document) figure: e.g. 50% of 44ADA gross receipts as elected |
 | `presumptive_section` | "44AD" or "44ADA" | confirmed eligible election | stable identifiers in both FYs, corresponding to new s.58(2) Table 1/3; enables one March instalment even with other income. Requires positive business_presumptive_income. Legacy FY 2025-26 presumptive-only files retain one March instalment with a warning; other omissions use quarterly targets. 44AE rejected |
-| `deductions.80c/80ccd_1b/80d/80g/other` | Chapter VI-A claims | proof receipts | old regime only (engine warns in new). 80C capped 1,50,000; 80CCD(1B) 50,000; 80D and 80G NOT engine-capped - enter only the eligible amount |
-| `deductions.80ccd_2` | employer NPS | Form 16 | valid in BOTH regimes; capped at 14%/10% of `basic_plus_da` when that field is present |
+| `deductions.80c/80ccd_1b/80d/80g/other` | Chapter VI-A claims | documented eligible computation | old regime only. 80C capped 1,50,000; 80CCD(1B) 50,000; 80D absolute ceiling 1,00,000, with lower family limits still externally verified. 80G has no universal cap: supply the documented eligible amount |
+| `deductions.80ccd_2` | employer NPS contribution | Form 16 plus payslips | valid in BOTH regimes; supply `basic_plus_da` and `employer_type` so the engine applies the correct percentage |
 | `deductions.80tta_ttb` | savings-interest deduction | - | best OMITTED: engine auto-derives from the interest fields and applies 10,000/50,000 caps |
 | `taxes_paid.tds` / `tcs` | total TDS/TCS, all deductors | 26AS | claim from 26AS, not Form 16 alone; validator errors if claim exceeds the 26AS total |
 | `taxes_paid.advance_tax[]` / `self_assessment[]` | `{date: "YYYY-MM-DD", amount}` per challan | challan receipts (CIN) | dates are load-bearing: they decide 234A/234C |
@@ -115,7 +118,7 @@ for the full counterpart table and form/transaction limits.
 - **Share buyback (1-Oct-2024 to 31-Mar-2026):** the FULL buyback consideration is deemed dividend u/s 2(22)(f), taxed at slab with no cost deduction. Put it in `other_sources.dividends` (it is dividend income, entitled to the 15% surcharge cap the engine keys on that field) and tell the user why - note it will make reported dividends exceed `ais_dividends`, which is expected here. The acquisition cost separately becomes a capital loss (consideration deemed nil u/s 46A) - the engine does not track losses/carry-forward, so record that loss for the ITR's Schedule CG/CFL manually.
 - **FY 2026-27 buybacks / SGB exemptions:** unsupported classification; never reuse the earlier-year dividend treatment or assume redemption is exempt. Read the selected-year rate card and refer that part for review.
 - **Specified mutual fund gains** (units acquired on/after 1-Apr-2023): `capital_gains.stcg_slab`, whatever the holding period. Verify the narrowed debt-fund definition and other holding periods in [capital-gains.md](capital-gains.md); neither a non-equity name nor an AIS code alone establishes this treatment.
-- **HRA:** never compute the exemption yourself if Form 16 already shows it - transcribe the employer's s.10 figure into `exempt_allowances`. If the employer missed HRA, the exemption is a genuine computation: do it outside the engine, show the working to the user, and note it is old-regime-only.
+- **HRA:** transcribe the employer's s.10 exemption into `exempt_allowances`. If absent, obtain a documented calculation from the official utility, a CA, or a deterministic script whose inputs and output the user approves. Never use model arithmetic. The bundled engine does not compute HRA eligibility; it is old-regime-only.
 - **Interest on let-out property:** goes in that property's `interest_paid` uncapped - the engine handles the loss-set-off cap.
 
 ## Why source_totals exists

@@ -16,6 +16,8 @@ import sys
 import zipfile
 from pathlib import Path
 
+from private_output import write_private
+
 if sys.version_info < (3, 9):
     sys.exit("itr-wala needs Python 3.9 or newer (found %d.%d)."
              % sys.version_info[:2])
@@ -54,11 +56,20 @@ def main(argv):
     info = zf.getinfo(names[0])
     if info.flag_bits & 0x40:
         print("This zip uses AES encryption, which Python's zipfile cannot "
-              "read.\nInstall p7zip and use:  7z x -p'<password>' file.zip",
+              "read.\nUse 7z x file.zip and enter the password at its hidden prompt.",
               file=sys.stderr)
         return 1
     if not (info.flag_bits & 0x1):
-        zf.extractall(outdir)
+        outdir.mkdir(parents=True, exist_ok=True)
+        for member in zf.infolist():
+            if not member.is_dir():
+                # Match zipfile.extract's relative-path sanitisation while
+                # creating the plaintext file with private permissions.
+                relative = Path(*[p for p in Path(member.filename).parts
+                                  if p not in ("", ".", "..", Path(member.filename).anchor)])
+                target = outdir / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                write_private(target, zf.read(member))
         print(f"Not encrypted. Extracted {len(names)} file(s) to {outdir}")
         return 0
 
@@ -93,8 +104,10 @@ def main(argv):
         if "PAN" not in text.upper() and "TDS" not in text.upper():
             continue
 
-        for name in names:
-            (outdir / Path(name).name).write_bytes(zf.read(name, pwd=pw.encode()))
+        outdir.mkdir(parents=True, exist_ok=True)
+        for member in zf.infolist():
+            if not member.is_dir():
+                write_private(outdir / Path(member.filename).name, zf.read(member, pwd=pw.encode()))
         print(f"\n[ok] Opened on password variant #{n}.")
         print(f"[ok] Extracted {len(names)} file(s) to {outdir}")
         print(f"[ok] {len(text):,} characters of readable text.")

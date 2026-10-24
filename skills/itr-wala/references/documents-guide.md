@@ -17,7 +17,9 @@ One number per income head, each tied to a source document. Never accept a figur
   - `key      = PBKDF2-HMAC-SHA256(password, salt, 1000 iterations, 32 bytes)`
   - `cipher   = AES-256-CBC, PKCS7 padding`
 
-  The literal `GQ39%*g` wedged between PAN and DOB is why a plain PAN+DOB password always fails. Sources disagree on PAN case; the script tries both. The **PDF** uses a *different* password - **PAN lowercase + ddmmyyyy**, no separator - and opens with `qpdf --password=... --decrypt`.
+  The literal `GQ39%*g` wedged between PAN and DOB is why a plain PAN+DOB password always fails. Sources disagree on PAN case; the script tries both. The **PDF** uses a *different* password: **PAN lowercase + ddmmyyyy**, no separator. Run `python3 <skill>/scripts/decrypt_pdf.py in.pdf out.pdf`. The user enters the password at its hidden prompt; it reaches qpdf over stdin, never in shell history or process arguments. Source: [qpdf password input](https://qpdf.readthedocs.io/en/stable/cli.html#option-password-file).
+
+  AIS, PDF and 26AS decryption helpers create plaintext files with owner-only permissions on POSIX systems, including macOS and Linux. On Windows, use a private user folder with restricted ACLs. Keep these unredacted files in the private tax workspace; do not upload or commit them.
 - **Never paste an AIS file into a web decryption tool.** Several exist. They are third-party pages that would receive the taxpayer's entire financial year in one upload. Decrypt locally.
 - WHY: it is the department's view of the user's income - anything here that the return omits is notice bait. Feeds `source_totals.ais_*` and helps discover income the user forgot. **Strongly prefer the JSON download over the PDF** - AIS PDFs are often image/OCR-only and digit-level OCR errors are the top extraction hazard.
 - SFT codes in AIS are authoritative evidence for equity vs non-equity fund classification: **SFT-18-EMF / SFT-17-LES → equity-oriented (s.111A/s.112A rates)**; **SFT-18-OTU → non-equity (slab / s.112)**. Traps: arbitrage funds ARE equity-oriented; balanced-advantage and liquid funds are NOT; switch-outs count as redemptions.

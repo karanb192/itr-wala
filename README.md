@@ -61,6 +61,13 @@ also distinguishes these two legal years.
 
 ## Existing-user calculation correction
 
+**Version 1.3.1 corrects more edge cases in both supported years.** Recheck outputs
+with multiple self-occupied loans, a late fee after deductions, a business regime
+election, house-property losses against capital gains, employer NPS or large medical
+claims. Slab-income rounding also changes some results by ₹10.
+The [affected-input guide](docs/calculation-corrections-1.3.1.md) explains the fixes,
+provisional results and how to check an older return.
+
 Any install before 1.3.0, including plugins 1.2.0 and 1.2.1 or unversioned
 clone/skills.sh installs, could understate FY 2025-26 new-regime tax. Recheck if
 you had special-rate gains or winnings, total income above ₹12 lakh, and a rebate
@@ -89,9 +96,9 @@ itr-wala splits the work the way it should be split:
 
 The math is defended in three layers, all shipped in the repo and run in CI on every commit:
 
-1. **93 tax tests** covering hand-derived rupee expectations and output guards: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
-2. **131 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
-3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. A fresh 360,000-case sweep (90,000 per combination, seed 42) passed on the revised engine. The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
+1. **102 tax tests** covering hand-derived rupee expectations and output guards: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
+2. **133 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
+3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. The 1.3.0 engine passed a 360,000-case sweep (90,000 per combination, seed 42). The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
 
 The skill runs the golden suite in front of you before touching your return:
 
@@ -190,7 +197,7 @@ write its record, the skill skips the invitation.
 
 ## What it covers (and refuses)
 
-**In scope (AY 2026-27, resident individuals):** salary (multiple employers, retirement exemptions like gratuity and leave encashment in both regimes), house property including s.71 loss set-off, equity/MF capital gains (111A/112A/112, grandfathering-aware exemption ordering), debt MF, crypto/VDA, lottery and online-game winnings (115BB/115BBJ), interest & dividends, family pension with the s.57(iia) deduction, s.89 arrears relief, eligible presumptive income (44AD/44ADA; 44AE excluded), supported Chapter VI-A deductions, both regimes, surcharge with marginal relief, advance-tax interest computed to actual challan dates, late fees, belated returns (including the s.115BAC(6) rule that locks belated filers out of the old regime - it will tell you, not let you find out from a notice), ITR-1/2/3/4 form selection.
+**In scope (AY 2026-27, resident individuals):** salary (multiple employers, retirement exemptions like gratuity and leave encashment in both regimes), house property including s.71 loss set-off, equity/MF capital gains (111A/112A/112, grandfathering-aware exemption ordering), debt MF, crypto/VDA, lottery and online-game winnings (115BB/115BBJ), interest & dividends, family pension with the s.57(iia) deduction, s.89 arrears relief, eligible presumptive income (44AD/44ADA; 44AE excluded), supported Chapter VI-A deductions, both regimes, surcharge with marginal relief, advance-tax interest computed to actual challan dates, late fees, belated returns (no-business old-regime lock; business elections checked separately), ITR-1/2/3/4 form selection.
 
 **FY 2026-27:** the same supported income categories have annual computation and advance-tax planning, with expected annual credits and dated payments.
 For FY 2026-27, annual computation works after year end; notified return forms
@@ -271,6 +278,8 @@ Project-scoped discovery is well established for Claude Code (`.claude/skills/`)
 
 Requirements: `python3` 3.9+ (stdlib only - zero pip installs), `git` only if you let the installer fetch rather than running it from a checkout.
 
+Document helpers also use **OpenSSL** for encrypted AIS JSON, **pdftotext** (Poppler) for TIS PDFs, and **qpdf** for encrypted PDFs. The tax engine needs none of these. On macOS: `brew install openssl poppler qpdf`; on Debian/Ubuntu: `sudo apt install openssl poppler-utils qpdf`. Use `scripts/decrypt_pdf.py` for a hidden password prompt, then `scripts/extract_tis.py` on its output.
+
 ## Install from a branch you reviewed
 
 This tool reads your Form 16, AIS, bank interest and capital gains. For something in that position, "I read the code once" only means something if **the code you read is the code that runs**. A `curl … | bash` one-liner cannot give you that - it installs whatever is on `main` at the moment you run it, from a repo you do not control, and re-decides that question on every update. That is true of this repo as much as any other.
@@ -336,7 +345,7 @@ It's filing season - bug reports get priority, wrong-rate reports get top priori
 
 ## License
 
-MIT - see [LICENSE](LICENSE). Reference material adapted from the MIT-licensed [file-itr](https://github.com/shivprime94/file-itr).
+MIT - see [LICENSE](LICENSE). Reference material adapted from the MIT-licensed [file-itr](https://github.com/shivprime94/file-itr); see [NOTICE.md](NOTICE.md) for attribution.
 
 ## Disclaimer
 

@@ -19,7 +19,7 @@ form number. See [Finance Act 2026 s.5](https://egazette.gov.in/WriteReadData/20
 
 - Audit extension: [CBDT Circular 07/2026 dated 28 September 2026](https://www.incometax.gov.in/iec/foportal/sites/default/files/2026-09/Circular-7-2026.pdf), audit report 21 October and return 21 November. Re-check official notifications before quoting any deadline; never carry an extension across years.
 - Belated/revised limits are also subject to earlier assessment completion. Revisions from 1 January to 31 March 2027 attract s.234I fee ₹1,000 up to ₹5L total income, ₹5,000 above it. Revised-return workflow/fees are unsupported. Sources: [Finance Act s.5/16](https://egazette.gov.in/WriteReadData/2026/271439.pdf), [ITR-2 FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/itr-2/itr-2-faqs).
-- **Belated return regime lock (s.115BAC(6)):** once the s.139(1) due date passes, a no-business taxpayer can no longer opt for the old regime - the utility enforces new-regime-only for belated returns. The engine detects `filing_date > due_date`, warns, and forces its recommendation to the new regime even when the old computes cheaper.
+- **Belated return regime lock (s.115BAC(6)):** a no-business taxpayer cannot opt for the old regime after the s.139(1) due date. Business filers depend on a valid timely election, including a continuing prior-year option. Set `business_regime` only after checking the election/withdrawal history; omission makes the comparison provisional. [Department FAQ, Q7/12/21](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/form%2010-iea-faq).
 - Pass an explicitly verified `due_date`. The engine defaults to 2026-07-31 without business income, 2026-08-31 with supported presumptive income.
 
 ## NEW regime (s.115BAC - the default)
@@ -53,8 +53,8 @@ form number. See [Finance Act 2026 s.5](https://egazette.gov.in/WriteReadData/20
 - **s.87A: 12,500 if total income ≤ 5,00,000** - a hard cliff, NO marginal relief (income 5,00,010 loses the entire rebate; the ≤ test is on the s.288A-rounded figure, so 5,00,004 still qualifies). Threshold tested on total income including special-rate income. Engine applies the rebate against all tax except: (a) 112A LTCG - statutory bar, s.112A(6); (b) VDA (115BBH) and winnings (115BB/BBJ) tax - no statutory bar, but no ruling supports the claim and the utility denies it, so the engine takes the safe posture and excludes them (with a warning). 87A **against 111A/112 tax is allowed in the old regime**: the Finance Act 2025 denial amended only the new-regime proviso, and Bombay HC (Chamber of Tax Consultants) plus ITAT rulings back the claim - but CPC has disputed it in processing and **CBDT Circular 13/2025 takes the department's side**, so the engine warns to verify the portal accepts the figure before filing.
 - **Basic-exemption absorption order vs 87A:** when unused basic exemption can absorb special-rate gains AND the rebate is in play, no fixed order is always cheapest (111A/112 tax is rebate-eligible, 112A tax is not) - the engine tries every order and keeps the lowest lawful tax.
 - Chapter VI-A caps the engine enforces: 80C 1,50,000; 80CCD(1B) 50,000; 80TTA 10,000 (<60y) / 80TTB 50,000 (seniors, savings+FD); 80CCD(2) at **10%** of Basic+DA for private employers under old regime (14% govt); s.24(b) self-occupied interest 2,00,000; house-property loss set-off vs other heads capped at 2,00,000 (s.71(3A)).
-- **s.24(b) caveat:** the 2,00,000 self-occupied cap requires a loan taken on/after 1-Apr-1999 for purchase/construction completed within 5 years; for repair/renovation or pre-1999 loans the cap is **30,000**. The engine applies 2,00,000 and warns - confirm the loan purpose.
-- **s.71 set-off order** (engine-implemented): house-property loss first absorbs the other slab heads; any remainder sets off against capital gains - highest-rate bucket first, against the **full 112A gain before its 1.25L exemption** (the exemption is a tax-stage threshold), and never against VDA or winnings (s.115BBH(2), s.58(4)); the unabsorbed balance carries forward (Schedule CFL - not tracked here, warned).
+- **s.24(b) caveat:** the 2,00,000 cap is aggregate across self-occupied properties, before combining rental income. It requires a loan taken on/after 1-Apr-1999 for purchase/construction completed within 5 years; for repair/renovation or pre-1999 loans the cap is **30,000**. The engine applies the aggregate 2,00,000 cap and warns; confirm the loan purpose. Source: [department house-property guide](https://incometaxindia.gov.in/tutorials/12.%20income-from-house-property.pdf).
+- **s.71 set-off order:** house-property loss first absorbs the other slab heads. For the remainder, the engine tries the capital-gain allocation orders, preserves the 112A threshold while other gains remain, and keeps the lowest tax after rebate and surcharge. Loss still reduces the full gain at the income stage; the threshold applies to the remaining 112A gain. Mirror the reported allocation in the return. No set-off against VDA or winnings (s.115BBH(2), s.58(4)); unabsorbed eligible loss carries forward (Schedule CFL not tracked).
 
 ## Applied automatically in both regimes
 
@@ -98,11 +98,17 @@ The 10%/15% tiers are tested on TOTAL income; the 25%/37% tiers are tested on to
 - **s.234C** (deferment): cumulative installments 15% / 45% / 75% / 100% by 15 Jun / 15 Sep / 15 Dec / 15 Mar. Shortfall charged 1% × 3 months (first three) or 1% × 1 month (March). Safe harbour: no Q1/Q2 interest if ≥12%/36% paid. Eligible timing exceptions are NOT modelled; quarterly data cannot be entered in the schema, so verify that part externally. The engine applies a single March instalment to eligible 44AD/44ADA taxpayers. For mixed income, official AY 2026-27 calculation components split the schedule. Treat engine interest as provisional and follow [mixed-income verification](advance-tax.md#mixed-income-verification). For estimates rather than return interest, use [advance-tax.md](advance-tax.md).
 - **s.207(2) senior carve-out**: resident 60+ with no business/professional income owes no advance tax → no 234B/234C. Engine applies this automatically from `age_category`.
 - **Rule 119A**: the base amount for 234A/B/C is rounded DOWN to a multiple of 100 before applying 1%.
-- **s.234F late fee**: 5,000 if filed after the due date; **1,000 if total income ≤ 5,00,000**; nil if total income is below the basic exemption (mandatory-filing edge cases exist - verify on the portal before relying on this).
+- **s.234F late fee**: 5,000 if filed after the due date; **1,000 if total income ≤ 5,00,000**. The income-based filing obligation uses income **before Chapter VI-A deductions**, so deductions below the basic exemption do not cancel the fee. Other mandatory-filing conditions require separate verification. Source: [s.139(1)](https://www.incometaxindia.gov.in/w/section-139-59).
 
 ## Rounding
 
-- **s.288A**: total income rounded to the nearest 10. **s.288B**: tax payable/refund rounded to the nearest 10. Engine rounds half-up (`_r10`); allow ±10 vs the portal at intermediate lines.
+- **s.288A**: total income rounded to the nearest 10 before slab tax; the slab portion is the rounded total less special-rate income, floored at zero. Special-rate buckets are not independently rounded to tens. **s.288B**: tax payable/refund rounded to the nearest 10. [Statute](https://www.incometaxindia.gov.in/w/section-288a).
+
+Employer NPS uses `employer_type`: Central/State Government 14% in both regimes;
+other employers 10% old, 14% new. Missing salary basis or employer classification
+makes the affected output provisional. Medical-insurance claims have an absolute
+1,00,000 ceiling, with family-specific eligibility still supplied from evidence.
+[Department deduction limits](https://www.incometaxindia.gov.in/w/deductions).
 
 ## Sources
 

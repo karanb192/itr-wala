@@ -30,8 +30,8 @@ schema identifiers; `sections` and the rendered output identify the applicable l
 | Old slabs | Finance Act 2026 s.3(1), First Schedule Part I-B, Paragraph A; Part III for advance tax | Nil up to ₹2.5L / ₹3L / ₹5L by age; 5% up to ₹5L where applicable, 20% ₹5-10L, 30% above ₹10L |
 | Old rebate | s.156(1), s.198(7) | ₹12,500 up to ₹5L total income; no rebate against equity LTCG. Existing conservative VDA/winnings exclusion and special-gain portal warning remain |
 | Salary deductions | s.19(1), Table 1/2; s.202(2) | ₹75,000 standard new, ₹50,000 old; actual professional tax old only; eligible retirement exemptions both |
-| Employer NPS | s.124(1)/(2) | 14% basic+DA new; 10% old for private employers. Government old-regime 14% is not modelled; flag it |
-| Personal NPS, savings, health | s.124(3), s.123, s.126 | Old-only ₹50,000 personal NPS; ₹1.5L savings cap; health/other eligible amounts supplied with evidence, not automatically determined |
+| Employer NPS | s.124(1)/(2) | 14% eligible basic+DA new; 10% old for other employers, 14% old for Central/State Government. Set employer_type; missing basis/type makes output provisional |
+| Personal NPS, savings, health | s.124(3), s.123, s.126 | Old-only ₹50,000 personal NPS; ₹1.5L savings cap; health absolute ceiling ₹1L. Family-specific health/other eligible amounts still need evidence |
 | Deposit-interest deduction | s.153(2) | Old-only ₹10,000 savings interest for regular individuals, ₹50,000 eligible deposits for seniors |
 | House property | s.21(7), s.22(1)/(2), s.109(1)(b); s.202(2) | At most two self-occupied houses; 30% net annual value deduction; old self-occupied interest and inter-head loss cap ₹2L; new inter-head loss prohibited. Repair/pre-1999 loans require separate review |
 | Family pension | s.93(1)(d) | One-third deduction, capped ₹25,000 new / ₹15,000 old |
@@ -91,13 +91,20 @@ Verify extensions live. The engine defaults the original due date from business
 status and accepts an explicit verified `due_date`. Return computations use
 s.423/424/425 interest and s.428(a) late fee, with the same numerical conventions
 as the earlier year. Historical deferment interest still needs timing exceptions
-checked separately. Revised-return fees under s.428(b) are not modelled.
+checked separately. The income-based filing obligation tests income before
+Chapter VIII deductions; deductions below the basic exemption do not cancel a
+late fee. Other mandatory-filing conditions require separate verification.
+Revised-return fees under s.428(b) are not modelled.
 Source: [s.263 and ss.423-428](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf).
 
 Annual tax computation is supported. The bundled form selector and portal guide
 cover AY 2026-27 for FY 2025-26. Do not reuse them for TY 2026-27. Before filing,
 verify notified forms, the official utility and its field mapping. Until those
 are available and checked, deliver a computation only, not a portal filing pack.
+
+The self-occupied interest cap is aggregate across properties before combining
+rental income. The separate inter-head loss cap applies afterwards.
+Source: [s.22(2)/(5)](https://www.incometaxindia.gov.in/w/section-22-211).
 
 ## Changed transactions that require a separate review
 
@@ -110,7 +117,7 @@ are available and checked, deliver a computation only, not a portal filing pack.
   exemption from the earlier year. SGB exemption classification is unsupported.
 - Loss carry-forwards, foreign income, RNOR/NRI, F&O/intraday, audit, property
   indexation caps and business-trust distribution classification remain out
-  of scope. Government NPS and statutory income-timing exceptions still need
+  of scope. Mixed employer categories and statutory income-timing exceptions still need
   external verification where the engine cannot express the facts.
 
 Sources: [Finance Act 2026 s.35(b)(A) removes buyback dividend treatment; s.42 changes s.69; s.43 changes SGB exemption](https://egazette.gov.in/WriteReadData/2026/271439.pdf)

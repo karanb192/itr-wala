@@ -163,6 +163,8 @@ def gen_case(rng, financial_year="2025-26", purpose="return"):
             sal["professional_tax"] = rng.choice((0, 200, 2_400, 2_500, 4_999, 5_000, 6_000))
         if rng.random() < 0.25:
             sal["basic_plus_da"] = int(sal["gross"] * rng.uniform(0.3, 0.6))
+        if rng.random() < 0.25:
+            sal["employer_type"] = rng.choice(("government", "other"))
         income["salary"] = sal
 
     props = []
@@ -208,11 +210,14 @@ def gen_case(rng, financial_year="2025-26", purpose="return"):
             income["presumptive_section"] = rng.choice(("44AD", "44ADA"))
     if income or rng.random() < 0.5:
         inp["income"] = income
+    if income.get("business_presumptive_income", 0) > 0 and rng.random() < 0.5:
+        inp["business_regime"] = rng.choice(("old", "new"))
 
     ded = {}
     for key in ("80c", "80ccd_1b", "80ccd_2", "80d", "80tta_ttb", "80g", "other"):
         if rng.random() < 0.25:
-            ded[key] = rand_deduction(rng)
+            amount = rand_deduction(rng)
+            ded[key] = min(amount, 100_000) if key == "80d" else amount
     if ded:
         inp["deductions"] = ded
 
@@ -269,6 +274,10 @@ def apply_bump(inp, field, delta):
     income = out.setdefault("income", {})
     if field == "salary.gross":
         sal = income.setdefault("salary", {})
+        # Hold the NPS ceiling fixed: increasing its fallback salary basis
+        # can lawfully increase deductions while salary stays below 75,000.
+        if inp.get("deductions", {}).get("80ccd_2", 0) > 0 and "basic_plus_da" not in sal:
+            sal["basic_plus_da"] = sal.get("gross", 0)
         sal["gross"] = sal.get("gross", 0) + delta
     elif field == "other_sources.other":
         os_ = income.setdefault("other_sources", {})
@@ -399,13 +408,15 @@ def run_case(inp, bump_field, bump_delta):
         if comp["savings"] != abs(n - o):
             fail("7-comparison", f"savings={comp['savings']} != |{n} - {o}|")
         rec = comp["recommended_regime"]
-        # Belated returns lock the choice to the new regime (s.115BAC(6)) -
-        # the engine then forces rec="new" even when old is cheaper.
-        belated_lock = "belated" in comp.get("note", "").lower()
-        if (n < o and rec != "new") or (o < n and rec != "old" and not belated_lock):
+        business = inp.get("income", {}).get("business_presumptive_income", 0) > 0
+        due = date.fromisoformat(inp.get("due_date", f"{int(inp.get('financial_year', '2025-26')[:4])+1}-07-31"))
+        filing = date.fromisoformat(inp["filing_date"]) if inp.get("filing_date") else fuzz_today(inp)
+        locked = (inp.get("business_regime") if business else
+                  "new" if inp.get("purpose") != "advance_tax" and filing > due else None)
+        if locked and rec != locked:
+            fail("7-comparison", f"recommended={rec} despite confirmed regime {locked}")
+        if not locked and ((n < o and rec != "new") or (o < n and rec != "old")):
             fail("7-comparison", f"recommended={rec} but new={n} old={o}")
-        if o < n and rec == "new" and not belated_lock:
-            fail("7-comparison", f"recommended=new with old cheaper and no belated note")
 
     bumped = apply_bump(inp, bump_field, bump_delta)           # invariant 8
     try:

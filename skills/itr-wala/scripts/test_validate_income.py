@@ -23,6 +23,24 @@ from datetime import date
 from validate_income import check as validator_check
 
 
+class TestReviewedDeductionChecks(unittest.TestCase):
+    def test_medical_ceiling_and_new_enums(self):
+        for inp, expected in (({"deductions": {"80d": 100_001}}, "absolute"),
+                              ({"business_regime": "old"}, "requires positive"),
+                              ({"income": {"business_presumptive_income": 1}, "business_regime": "both"}, "business_regime must"),
+                              ({"income": {"salary": {"employer_type": "govt"}}}, "employer_type must")):
+            errors, _ = vcheck_raw(json.dumps(inp))
+            self.assertTrue(any(expected in e for e in errors), errors)
+
+
+class TestIdentityVariants(unittest.TestCase):
+    def test_lowercase_pan_and_formatted_aadhaar(self):
+        for value in ("abcde1234f", "AbCdE1234f", "1234 5678 9012", "1234-5678-9012"):
+            with self.subTest(value=value):
+                errors, _ = vcheck_raw('{"name": "' + value + '"}')
+                self.assertTrue(any("redact" in e for e in errors), errors)
+
+
 def check(inp, raw="", today=date(2026, 7, 20)):
     return validator_check(inp, raw, today=today)
 

@@ -91,6 +91,7 @@ CAP_57IIA_OLD = 15_000        # old regime
 # Chapter VI-A caps (old regime)
 CAP_80C = 150_000
 CAP_80CCD_1B = 50_000
+CAP_80D = 100_000
 CAP_80TTA = 10_000
 CAP_80TTB = 50_000
 CAP_HP_LOSS_SETOFF = 200_000  # s.71(3A)
@@ -167,16 +168,18 @@ def compute_house_property(inp, regime_key, warnings):
     if isinstance(props, dict):
         props = [props]
     total, detail, warned_24b = 0.0, [], False
+    self_occupied_remaining = 200_000
     for p in props:
         ptype = p.get("type", "self_occupied")
         interest = _pos(p.get("interest_paid"))
         if ptype == "self_occupied":
             if regime_key == "old":
-                allowed = min(interest, 200_000)
+                allowed = min(interest, self_occupied_remaining)
+                self_occupied_remaining -= allowed
                 income = -allowed
                 if interest > 30_000 and not warned_24b:
                     warned_24b = True
-                    warnings.append(f"{section(inp, 'home_loan_cap')}: the 2,00,000 self-occupied cap assumes a loan "
+                    warnings.append(f"{section(inp, 'home_loan_cap')}: the aggregate 2,00,000 cap across self-occupied properties assumes a loan "
                                     "taken on/after 1-Apr-1999 for purchase/construction "
                                     "completed within 5 years; for repair/renovation or "
                                     "pre-1999 loans the lawful cap is 30,000 - confirm the "
@@ -244,12 +247,21 @@ def allowed_deductions(inp, regime_key, heads, warnings):
     d = inp.get("deductions") or {}
     out = {}
     ccd2 = _pos(d.get("80ccd_2"))
-    basic = _pos(inp.get("income", {}).get("salary", {}).get("basic_plus_da"))
+    salary = inp.get("income", {}).get("salary") or {}
+    basic = _pos(salary.get("basic_plus_da"))
     if ccd2:
         pct = (NEW_REGIME if regime_key == "new" else OLD_REGIME)["nps_80ccd2_pct"]
-        if basic and ccd2 > pct * basic:
+        if salary.get("employer_type") == "government":
+            pct = 0.14
+        if "basic_plus_da" in salary and ccd2 > pct * basic:
             warnings.append(f"Employer NPS ({section(inp, 'employer_nps')}) capped at {int(pct*100)}% of basic+DA = {_r10(pct*basic):,}.")
             ccd2 = pct * basic
+        elif "basic_plus_da" not in salary:
+            ccd2 = min(ccd2, pct * _pos(salary.get("gross")))
+            warnings.append("Employer NPS: basic_plus_da missing. The claimed deduction is "
+                            "limited by gross salary as an upper bound, not a verified cap; "
+                            "supply the eligible salary base from payslips before "
+                            "using this result for filing or payment.")
         out["80ccd_2"] = ccd2
     if regime_key == "new":
         skipped = [k for k in ("80c", "80ccd_1b", "80d", "80tta_ttb", "80g", "other")
@@ -267,7 +279,11 @@ def allowed_deductions(inp, regime_key, heads, warnings):
     if _pos(d.get("80c")) > CAP_80C:
         warnings.append(f"Eligible savings deduction ({section(inp, 'savings')}) capped at 1,50,000.")
     out["80ccd_1b"] = min(_pos(d.get("80ccd_1b")), CAP_80CCD_1B)
-    out["80d"] = _pos(d.get("80d"))  # user supplies eligible amount; caps vary by family mix
+    out["80d"] = min(_pos(d.get("80d")), CAP_80D)
+    if _pos(d.get("80d")) > CAP_80D:
+        warnings.append("Medical-insurance deduction capped at the absolute 1,00,000 ceiling. "
+                        "The eligible amount can be lower: verify the two family groups, ages, "
+                        "payment mode and proof before claiming it.")
     tta = _pos(d.get("80tta_ttb"))
     savings_int = heads["other_sources"]["savings_interest"]
     if age in ("senior", "super_senior"):
@@ -285,6 +301,16 @@ def allowed_deductions(inp, regime_key, heads, warnings):
 # ---------------------------------------------------------------------------
 
 def compute_regime(inp, regime_key):
+    chosen = _compute_regime(inp, regime_key, ("111a", "112a", "112"))
+    if regime_key == "old" and chosen["heads"]["house_property"]["capital_gains_setoff"]:
+        for order in itertools.permutations(("111a", "112a", "112")):
+            candidate = _compute_regime(inp, regime_key, order)
+            if candidate["tax"]["total_tax_liability"] < chosen["tax"]["total_tax_liability"]:
+                chosen = candidate
+    return chosen
+
+
+def _compute_regime(inp, regime_key, loss_order):
     warnings = []
     age = inp.get("age_category", "regular")
     if regime_key == "new":
@@ -322,15 +348,22 @@ def compute_regime(inp, regime_key):
     slab_income_gross = _pos(slab_raw)
 
     rem = {"111a": cg["stcg_111a"], "112a": cg["ltcg_112a"], "112": cg["ltcg_other"]}
+    loss_allocation = {}
     setoff = 0.0
     if hp_residual > 0:
-        for key in ("111a", "112a", "112"):  # highest-rate first
+        # Preserve the equity-LTCG threshold until other gains are exhausted.
+        for key in (*loss_order, "112a"):
             room = hp_residual - setoff
             if room <= 0:
                 break
-            take = min(room, rem[key])
+            available = rem[key]
+            if key == "112a" and any(rem[k] for k in ("111a", "112")):
+                available = _pos(available - LTCG_112A_EXEMPT)
+            take = min(room, available)
             rem[key] -= take
             setoff += take
+            if take:
+                loss_allocation[key] = loss_allocation.get(key, 0) + take
         if setoff:
             warnings.append(f"House-property loss of {round(setoff):,} set off against "
                             f"capital gains ({section(inp, 'loss_setoff')}) - mirror this in the current-year loss-adjustment schedule.")
@@ -347,6 +380,7 @@ def compute_regime(inp, regime_key):
     ded_total = min(ded_total, _pos(slab_income_gross))
     slab_income = _pos(slab_income_gross - ded_total)
     total_income = _r10(slab_income + special_total_net)
+    slab_income = _pos(total_income - special_total_net)
 
     unused_be0 = _pos(basic_exemption - slab_income)
     tax_slab = slab_tax(slab_income, slabs)
@@ -472,7 +506,8 @@ def compute_regime(inp, regime_key):
         "basic_exemption": basic_exemption,
         "heads": {
             "salary": salary_detail,
-            "house_property": {"income": round(hp_income), "properties": hp_detail},
+            "house_property": {"income": round(hp_income), "properties": hp_detail,
+                               "capital_gains_setoff": loss_allocation},
             "capital_gains": cg,
             "other_sources": other,
             "business_presumptive": business,
@@ -659,8 +694,8 @@ def compute_interest_and_fee(comp, inp, today=None):
                                   f"no advance-tax liability ({section(inp, 'senior_exemption')}); "
                                   f"{section(inp, 'advance_interest')}/{section(inp, 'deferment_interest')} waived.")
 
-    # 234F late fee (nil if total income is under the basic exemption limit)
-    if filing > due and comp["total_income"] > comp["basic_exemption"]:
+    # The filing obligation tests income before Chapter VI-A / VIII deductions.
+    if filing > due and comp["gross_total_income"] > comp["basic_exemption"]:
         out["234F"] = FEE_234F_LOW if comp["total_income"] <= FEE_234F_INCOME_CUTOFF else FEE_234F_HIGH
 
     # 234A: 1%/month on the unpaid balance from the day after the due date,
@@ -764,21 +799,36 @@ def compute(inp, today=None):
         raise ValueError(f"age_category must be 'regular', 'senior' or "
                          f"'super_senior', got {age!r}")
 
-    # Belated return (s.139(4)): the old-regime option is gone - s.115BAC(6)
-    # requires the opt-out in a return filed by the s.139(1) due date, and
-    # the e-filing utility enforces it.
     business = _pos(inp.get("income", {}).get("business_presumptive_income")) > 0
     due = _parse_date(inp.get("due_date")) or return_due_date(rules, business)
     filing = effective_filing_date(inp, today)
     belated = purpose == "return" and filing > due
+    belated_lock = belated and not business
+    business_regime = inp.get("business_regime") if business else None
 
     result: dict = {"fy": rules["fy"], "ay": rules["ay"],
                    "tax_year": rules["tax_year"], "act": rules["act"],
                    "purpose": purpose, "sections": rules["sections"].copy(),
-                   "engine_version": "1.3.0"}
+                   "engine_version": "1.3.1"}
     regimes = ("new", "old") if want == "both" else (want,)
     for rk in regimes:
         comp = compute_regime(inp, rk)
+        checks = []
+        salary = inp.get("income", {}).get("salary") or {}
+        if _pos((inp.get("deductions") or {}).get("80ccd_2")):
+            if "basic_plus_da" not in salary:
+                checks.append("Employer NPS requires the eligible basic_plus_da salary base.")
+            if rk == "old" and "employer_type" not in salary:
+                checks.append("Employer type omitted: old-regime NPS assumes other (10%). "
+                              "Confirm whether Central/State Government (14%) applies.")
+        if business and not business_regime:
+            checks.append("Confirm business_regime from the valid election/withdrawal history "
+                          "for this year. A late return alone does not cancel an existing old-regime option.")
+        elif business_regime and business_regime != rk:
+            comp["warnings"].append(f"{rk.title()}-regime figures are informational: "
+                                    f"business_regime confirms {business_regime} is in force.")
+        if checks:
+            comp["input_verification_required"] = checks
         heads = comp["heads"]
         mixed_presumptive = single_presumptive_instalment(inp) and any(
             value > 0 for value in
@@ -825,7 +875,7 @@ def compute(inp, today=None):
             comp["warnings"].append("Annual computation for TY 2026-27: verify the "
                                     "notified return form and utility before filing; "
                                     "the AY 2026-27 portal walkthrough is for FY 2025-26.")
-        if belated and rk == "old":
+        if belated_lock and rk == "old":
             comp["warnings"].append(f"Belated return ({section(inp, 'belated')}): the old regime CANNOT be "
                                     f"opted - {section(inp, 'regime_election')} requires the choice in a return "
                                     f"filed by the {section(inp, 'on_time_return')} due date. Old-regime figures "
@@ -835,16 +885,22 @@ def compute(inp, today=None):
         n, o = (result[rk]["tax"]["total_tax_liability"] +
                 result[rk].get("interest_and_fees", {}).get("total_interest_and_fee", 0)
                 for rk in ("new", "old"))
-        better = "new" if (n <= o or belated) else "old"
+        better = business_regime or ("new" if (n <= o or belated_lock) else "old")
         note = ("Recommendation is on submitted numbers only. Old regime needs "
                 "proofs for every deduction claimed.")
-        if belated and o < n:
+        if business_regime:
+            note += " Using the confirmed business regime in force; the other total is hypothetical."
+        elif business:
+            note += " Business regime eligibility is unverified; this is only a numerical comparison."
+        if belated_lock and o < n:
             note += (" Old regime would be cheaper but is unavailable in a belated "
                      f"return ({section(inp, 'regime_election')}) - recommendation forced to new.")
         result["comparison"] = {
             "new_total": n, "old_total": o,
             "recommended_regime": better,
             "savings": abs(n - o),
+            "eligibility_locked": bool(business_regime or belated_lock),
+            "conditional": any(result[rk].get("input_verification_required") for rk in regimes),
             "note": note,
         }
     return result
@@ -947,10 +1003,18 @@ def render_table(result):
         c = result[rk]
         t = c["tax"]
         add(f"\n[{rk.upper()} REGIME]")
+        for check in c.get("input_verification_required", []):
+            add("  INPUT VERIFICATION REQUIRED: " + check)
+        if c.get("input_verification_required"):
+            add("  Provisional figures: resolve these checks before filing or payment.")
         amount("Gross total income", c['gross_total_income'])
         amount("Deductions", c['deductions_total'])
         amount("Total income", c['total_income'])
         amount("Tax on slab income", t['slab_tax'])
+        for key, value in c["heads"]["house_property"]["capital_gains_setoff"].items():
+            label = {"111a": "stcg", "112a": "equity_ltcg", "112": "other_ltcg"}[key]
+            add(f"  House-property loss set off against {section({'financial_year': result['fy']}, label)} "
+                f"capital gains: {_fmt(value)} (mirror this allocation in the return)")
         for s in t["special"]:
             amount(s['section'], s['tax'])
         if t["rebate_87a"]:
@@ -1000,12 +1064,15 @@ def render_table(result):
     if "comparison" in result:
         cmp_ = result["comparison"]
         add("\n" + "=" * 64)
-        if "belated" in cmp_["note"].lower() and cmp_["old_total"] < cmp_["new_total"]:
-            add("  RECOMMENDED: NEW regime (old-regime option unavailable for this belated return)")
+        if cmp_.get("conditional"):
+            add("  PROVISIONAL COMPARISON: resolve input verification before choosing a regime.")
+        elif cmp_.get("eligibility_locked"):
+            add(f"  APPLICABLE: {cmp_['recommended_regime'].upper()} regime (eligibility constraint)")
         else:
             add(f"  RECOMMENDED: {cmp_['recommended_regime'].upper()} regime "
                 f"(saves Rs. {_fmt(cmp_['savings'])})")
         add(f"  New: {_fmt(cmp_['new_total'])}   Old: {_fmt(cmp_['old_total'])}")
+        add("  " + cmp_["note"])
     if result["purpose"] == "advance_tax" and "comparison" in result:
         add("\nChoose ONE payment plan after confirming the regime you can legally use.")
         add("A cheaper comparison does not establish eligibility to switch regimes.")

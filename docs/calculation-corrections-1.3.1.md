@@ -46,8 +46,9 @@ figures provisional. Do not use those figures as a final filing or payment instr
 `comparison.savings` remains the absolute difference between the calculations;
 `eligibility_locked` means the cheaper alternative may be unavailable.
 
-The separate [mixed-presumptive interest warning](mixed-presumptive-interest.md)
-remains in force. Filing obligations triggered by specified transactions or
+The separate [mixed-presumptive instalment split](mixed-presumptive-interest.md)
+now applies quarterly targets to the non-presumptive tax share and keeps the
+presumptive share in March. Filing obligations triggered by specified transactions or
 exemptions added back under the return-filing provisions are not fully modelled.
 
 ## Document handling

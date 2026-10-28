@@ -218,12 +218,13 @@ Present to the user:
 - Explanations of *why* (use the selected year's rate card to narrate -
   never to recompute).
 
-If `verification_required` appears, explain it before presenting payment amounts.
-Mixed presumptive and other income needs external instalment-interest verification.
-Keep the engine figures as provisional estimates. Do not call the return ready,
-recommend payment, or treat the regime savings as final until the selected official
-utility calculation or a CA resolves the difference. Record that evidence separately;
-never invent an interest adjustment. See [advance-tax.md](references/advance-tax.md#mixed-income-verification).
+Mixed presumptive and other income uses a split instalment schedule. For
+44AD/44ADA filers, the engine applies the 15/45/75% targets only to the
+non-presumptive tax share and adds the presumptive share to the 15 March target.
+The AY 2026-27 official calculation components use this split; the engine's
+evidence and limits are in [advance-tax.md](references/advance-tax.md#mixed-income-schedule).
+Reconcile a filed return's final interest and regime savings with the selected
+official utility or a CA. TY 2026-27 utility treatment is still unobserved.
 
 Also check each regime's `input_verification_required`. Missing employer-NPS salary
 basis or employer type, and missing business-regime election history, make that

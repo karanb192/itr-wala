@@ -149,68 +149,62 @@ class TestReviewedPropertyAndFeeCases(unittest.TestCase):
                 self.assertEqual(result["new"]["interest_and_fees"]["234F"], 0)
 
 
-class TestMixedPresumptiveVerification(unittest.TestCase):
-    def test_warning_covers_both_years_purposes_and_sections(self):
-        from tax_engine import render_table
+class TestMixedPresumptiveInstalments(unittest.TestCase):
+    def test_issue_example_matches_utility_component_both_years(self):
+        # Salary 15L + 44AD 8L: total tax 2,66,500. Only the salary share
+        # (tax 97,500) is tested in June/September/December; 3L paid in March
+        # leaves floor(15%/45%/75% targets) short:
+        # 14600*3% + 43800*3% + 73100*3% = 438 + 1,314 + 2,193 = 3,945,
+        # matching the inspected ITR-3 AY 2026-27 calculation component.
         for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
-            for purpose in ("return", "advance_tax"):
-                for label in ("44AD", "44ADA"):
-                    for other in ({"salary": {"gross": 1_500_000}},
-                                  {"other_sources": {"fd_interest": 200_000}},
-                                  {"capital_gains": {"ltcg_112a": 200_000}},
-                                  {"house_property": [{"type": "let_out", "rent_received": 200_000}]}):
-                        with self.subTest(fy=fy, purpose=purpose, label=label, other=other):
-                            inp = {"financial_year": fy, "purpose": purpose,
-                                   "income": dict(other, business_presumptive_income=3_000_000,
-                                                  presumptive_section=label)}
-                            inp.update({"filing_date": f"{year + 1}-07-20"} if purpose == "return"
-                                       else {"as_of_date": f"{year}-12-10"})
-                            r = compute(inp)
-                            review = r["verification_required"]
-                            self.assertEqual(review["regimes"], ["new", "old"])
-                            for regime in review["regimes"]:
-                                self.assertIn(review["message"], r[regime]["warnings"])
-                            rendered = render_table(r)
-                            self.assertLess(rendered.index("VERIFICATION REQUIRED"),
-                                            rendered.index("[NEW REGIME]"))
-                            self.assertEqual(rendered.count(review["message"]), 1)
-                            if fy == "2026-27":
-                                self.assertIn("TY 2026-27 utility treatment is unverified", review["message"])
+            inp = {"financial_year": fy, "regime": "new",
+                   "filing_date": f"{year + 1}-07-31",
+                   "income": {"salary": {"gross": 1_500_000},
+                              "business_presumptive_income": 800_000,
+                              "presumptive_section": "44AD"},
+                   "taxes_paid": {"advance_tax": [
+                       {"date": f"{year + 1}-03-10", "amount": 300_000}]}}
+            with self.subTest(fy=fy):
+                r = compute(inp)
+                self.assertEqual(r["new"]["tax"]["total_tax_liability"], 266_500)
+                self.assertEqual(r["new"]["interest_and_fees"]["234C"], 3_945)
+                self.assertNotIn("verification_required", r)
+                self.assertTrue(any("non-presumptive tax share" in note for note in
+                                    r["new"]["interest_and_fees"]["assumptions"]))
+                self.assertEqual(r, compute(inp, today=date(2035, 10, 20)))
 
-    def test_issue_probe_and_historical_replay_keep_arithmetic(self):
-        inp = {"regime": "new", "filing_date": "2026-07-31",
-               "income": {"salary": {"gross": 1_500_000},
-                          "business_presumptive_income": 800_000, "presumptive_section": "44AD"},
-               "taxes_paid": {"advance_tax": [{"date": "2026-03-10", "amount": 300_000}]}}
-        r = compute(inp)
-        self.assertEqual(r["new"]["interest_and_fees"]["234C"], 0)
-        self.assertEqual(r["verification_required"]["regimes"], ["new"])
-        self.assertEqual(r, compute(inp, today=date(2035, 10, 20)))
-        self.assertEqual(r["new"]["tax"]["total_tax_liability"], 266_500)
-
-    def test_no_warning_for_unaffected_inputs_or_credit_covered_liability(self):
+    def test_advance_plan_quarters_follow_non_presumptive_share(self):
+        # Same salary/presumptive mix, planning on 10 December with no credits
+        # or challans. The first three targets use tax on salary alone
+        # (97,500): 14,625 / 43,875 / 73,125, rounded to 10 for the plan;
+        # March adds the full 2,66,500.
         for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
-            for purpose in ("return", "advance_tax"):
-                base = {"financial_year": fy, "purpose": purpose, "regime": "new",
-                        "income": {"business_presumptive_income": 3_000_000,
-                                   "presumptive_section": "44AD"}}
-                base.update({"filing_date": f"{year + 1}-07-20"} if purpose == "return"
-                            else {"as_of_date": f"{year}-12-10"})
-                self.assertNotIn("verification_required", compute(base))
-                salary = deepcopy(base)
-                salary["income"] = {"salary": {"gross": 3_000_000}}
-                self.assertNotIn("verification_required", compute(salary))
-                covered = deepcopy(base)
-                covered["income"]["salary"] = {"gross": 1_500_000}
-                credit_key = "expected_tax_credits" if purpose == "advance_tax" else "taxes_paid"
-                covered[credit_key] = {"tds": 2_000_000}
-                self.assertNotIn("verification_required", compute(covered))
+            inp = {"financial_year": fy, "purpose": "advance_tax", "regime": "new",
+                   "as_of_date": f"{year}-12-10", "expected_tax_credits": {},
+                   "income": {"salary": {"gross": 1_500_000},
+                              "business_presumptive_income": 800_000,
+                              "presumptive_section": "44ADA"}}
+            with self.subTest(fy=fy):
+                plan = compute(inp)["new"]["advance_tax"]
+                self.assertEqual([row["cumulative_required"] for row in plan["schedule"]],
+                                 [14_630, 43_880, 73_130, 266_500])
+                self.assertEqual(plan["next_payment"],
+                                 {"due_date": f"{year}-12-15", "amount": 73_130,
+                                  "kind": "instalment"})
+                self.assertTrue(any("non-presumptive tax share" in note
+                                    for note in plan["assumptions"]))
 
-    def test_warning_only_lists_regimes_with_advance_tax_liability(self):
-        r = compute({"income": {"salary": {"gross": 500_000},
-                                 "business_presumptive_income": 500_000,
-                                 "presumptive_section": "44AD"}})
-        self.assertEqual(r["verification_required"]["regimes"], ["old"])
+    def test_presumptive_only_remains_single_march_instalment(self):
+        for fy, year in (("2025-26", 2025), ("2026-27", 2026)):
+            inp = {"financial_year": fy, "purpose": "advance_tax", "regime": "new",
+                   "as_of_date": f"{year}-12-10", "expected_tax_credits": {},
+                   "income": {"business_presumptive_income": 2_000_000,
+                              "presumptive_section": "44AD"}}
+            with self.subTest(fy=fy):
+                plan = compute(inp)["new"]["advance_tax"]
+                self.assertEqual(len(plan["schedule"]), 1)
+                self.assertEqual(plan["schedule"][0]["due_date"], f"{year + 1}-03-15")
+                self.assertEqual(plan["schedule"][0]["cumulative_required"], 208_000)
 
     def test_legacy_optional_heads_and_single_property_remain_accepted(self):
         for field in ("house_property", "capital_gains", "other_sources"):
@@ -220,7 +214,7 @@ class TestMixedPresumptiveVerification(unittest.TestCase):
         r = compute({"income": {"business_presumptive_income": 3_000_000,
                                  "presumptive_section": "44AD",
                                  "house_property": {"type": "let_out", "rent_received": 200_000}}})
-        self.assertEqual(r["verification_required"]["regimes"], ["new", "old"])
+        self.assertNotIn("verification_required", r)
 
 
 class TestNewRegime(unittest.TestCase):
@@ -800,14 +794,16 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
         self.assertEqual(p["schedule"][1]["outstanding_now"], 0)
         self.assertEqual(p["next_payment"]["amount"], 50_000)
 
-    def test_presumptive_with_interest_uses_single_march_instalment(self):
+    def test_presumptive_with_non_taxable_interest_uses_single_march_instalment(self):
         for fy, as_of, march in (("2025-26", "2025-12-10", "2026-03-15"),
                                 ("2026-27", "2026-12-10", "2027-03-15")):
             r = self.estimate(fy, as_of, expected_tax_credits={}, income={
                 "business_presumptive_income": 2_000_000, "presumptive_section": "44ADA",
                 "other_sources": {"fd_interest": 100_000}})
             p = r["new"]["advance_tax"]
-            # 21L: tax 225,000 * 1.04 = 234,000, entirely due in March.
+            # 21L: tax 225,000 * 1.04 = 234,000. The 1L interest is below the
+            # basic exemption, so the non-presumptive tax share is zero and
+            # the entire liability is due in March.
             self.assertEqual(p["annual_tax_liability"], 234_000)
             self.assertEqual(len(p["schedule"]), 1)
             self.assertEqual(p["next_payment"]["due_date"], march)
@@ -894,7 +890,10 @@ class TestIncomeYearsAndAdvanceTax(unittest.TestCase):
         self.assertEqual([i[k] for k in ("234A", "234B", "234C", "234F")],
                          [2_080, 10_400, 10_504, 5_000])
 
-    def test_mixed_presumptive_return_interest_uses_march_only(self):
+    def test_mixed_presumptive_with_no_other_tax_keeps_march_only(self):
+        # 1L interest is below the basic exemption, so the non-presumptive tax
+        # share is zero and the whole liability stays a single March target:
+        # 2,34,000 * 1% = 2,340.
         r = compute({"financial_year": "2026-27", "regime": "new",
                      "income": {"business_presumptive_income": 2_000_000, "presumptive_section": "44ADA",
                                 "other_sources": {"fd_interest": 100_000}},

@@ -26,8 +26,9 @@
 #   /plugin marketplace add karanb192/itr-wala
 #   /plugin install itr-wala@itr-wala
 #
-# macOS and Linux. Windows: use WSL, or copy skills/itr-wala into
-# %USERPROFILE%\.claude\skills manually.
+# macOS, Linux, and Windows (Git Bash / WSL). PowerShell on Windows: use
+# .\install.ps1. If ExecutionPolicy blocks it, bypass it for one invocation:
+#   powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 set -euo pipefail
 
@@ -119,8 +120,18 @@ fi
 
 INSTALLED=()
 install_into() {
+  # Refuse to delete somebody else's file that happens to sit where a skills
+  # directory (or the installed skill) belongs.
+  if [ -e "$1" ] && [ ! -d "$1" ]; then
+    echo "ERROR: '$1' exists and is not a directory. Move it aside and rerun." >&2
+    return 1
+  fi
   mkdir -p "$1"
-  if [ -e "$1/$SKILL" ]; then
+  if [ -e "$1/$SKILL" ] && [ ! -d "$1/$SKILL" ]; then
+    echo "ERROR: '$1/$SKILL' exists and is a file, not an installed skill directory. Move it aside and rerun." >&2
+    return 1
+  fi
+  if [ -d "$1/$SKILL" ]; then
     echo "  replacing existing install at $1/$SKILL"
     rm -rf "${1:?}/$SKILL"
   fi
@@ -165,19 +176,43 @@ case "$TARGET" in
     ;;
 esac
 
+# Pick an interpreter that is actually Python 3.9+: presence on PATH is not
+# enough (`python` can be Python 2, and `py` needs `-3` so the launcher cannot
+# pick an unexpected version). Keep the command and its arguments in an array
+# so `py -3` is invoked exactly as it was probed.
+PYTHON=()
+for candidate in python3 python py; do
+  command -v "$candidate" >/dev/null 2>&1 || continue
+  py_args=()
+  if [ "$candidate" = "py" ]; then
+    py_args=(-3)
+  fi
+  if PYTHONDONTWRITEBYTECODE=1 "$candidate" "${py_args[@]}" \
+      -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' \
+      >/dev/null 2>&1; then
+    PYTHON=("$candidate" "${py_args[@]}")
+    break
+  fi
+done
+
 echo
 echo "Verifying the tax engine (golden test suite) in each installed copy..."
 FAILED=0
+if [ "${#PYTHON[@]}" -eq 0 ]; then
+  echo "  FAIL no Python 3.9+ interpreter found (tried python3, python, py -3)" >&2
+  echo "WARNING: the skill was installed but is unverified. Do not trust it until the self-test passes." >&2
+  exit 1
+fi
 for dest in "${INSTALLED[@]}"; do
-  if PYTHONDONTWRITEBYTECODE=1 python3 "$dest/scripts/test_tax_engine.py" >/dev/null 2>&1; then
+  if PYTHONDONTWRITEBYTECODE=1 "${PYTHON[@]}" "$dest/scripts/test_tax_engine.py" >/dev/null 2>&1; then
     echo "  OK   $dest"
   else
-    echo "  FAIL $dest - run: python3 $dest/scripts/test_tax_engine.py" >&2
+    echo "  FAIL $dest - run: ${PYTHON[*]} $dest/scripts/test_tax_engine.py" >&2
     FAILED=1
   fi
 done
 if [ "$FAILED" -ne 0 ]; then
-  echo "WARNING: verification failed (is python3 3.9+ on PATH?). Do not trust the skill until the self-test passes." >&2
+  echo "WARNING: verification failed (is Python 3.9+ on PATH?). Do not trust the skill until the self-test passes." >&2
 fi
 
 echo

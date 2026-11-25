@@ -1,0 +1,107 @@
+{
+  "$schema": "https://fundingjson.org/schema/v1.1.0.json",
+  "version": "v1.1.0",
+  "entity": {
+    "type": "individual",
+    "role": "owner",
+    "name": "Karan Bansal",
+    "email": "karan@karanbansal.in",
+    "description": "I am a software engineer in Gurgaon, India, and I maintain itr-wala on my own time, outside a full-time job.\n\nI build open source tools in public, mostly for people who work with AI coding agents. I have about ten years in security engineering, which is why itr-wala keeps all tax arithmetic in tested code and keeps the agent away from payment, submission and e-verification.\n\nI file my own return with itr-wala.",
+    "webpageUrl": {
+      "url": "https://karanbansal.in",
+      "wellKnown": "https://karanbansal.in/.well-known/funding-manifest-urls"
+    }
+  },
+  "projects": [
+    {
+      "guid": "itr-wala",
+      "name": "itr-wala",
+      "description": "itr-wala helps a resident Indian taxpayer prepare an income tax return, or plan advance tax, from the terminal with an AI coding agent. It is free and MIT licensed.\n\nThe agent reads the taxpayer's own documents (Form 16, AIS) and fills a structured income file. Every rupee of tax is then computed by a deterministic Python engine that uses only the standard library, so anyone can read and rerun it. The engine covers salary, house property, capital gains, crypto, interest and dividends, presumptive income, both regimes, surcharge with marginal relief, interest and late fees. Cases it does not cover are refused and sent to a chartered accountant, never approximated. The taxpayer pays, submits and e-verifies on the government portal personally.\n\nEvery tax figure ships with a hand-derived test and its statutory source. The suite has 297 tests and a seeded fuzz run on every push.\n\nThe project was first published in July 2026. In November 2026 it has 891 GitHub stars and 130 forks. It supports FY 2025-26 returns and FY 2026-27 advance-tax planning under the Income-tax Act 2025.",
+      "webpageUrl": {
+        "url": "https://itr-wala.karanbansal.in"
+      },
+      "repositoryUrl": {
+        "url": "https://github.com/karanb192/itr-wala",
+        "wellKnown": "https://github.com/karanb192/itr-wala/blob/main/.well-known/funding-manifest-urls"
+      },
+      "licenses": [
+        "spdx:MIT"
+      ],
+      "tags": [
+        "finance",
+        "artificial-intelligence",
+        "developer-tools",
+        "productivity",
+        "privacy",
+        "education"
+      ]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "github-sponsors",
+        "type": "payment-provider",
+        "address": "https://github.com/sponsors/karanb192",
+        "description": "GitHub Sponsors, for one-time and monthly sponsorships."
+      },
+      {
+        "guid": "bank",
+        "type": "bank",
+        "address": "Indian savings account, details shared with the funder directly",
+        "description": "Bank transfer, for grants."
+      }
+    ],
+    "plans": [
+      {
+        "guid": "tax-year-2026-27-returns",
+        "status": "active",
+        "name": "Return filing for Tax Year 2026-27",
+        "description": "FY 2026-27 is the first year filed under the Income-tax Act 2025, with new return forms and portal fields. Today itr-wala computes the annual tax and advance-tax targets for that year but cannot yet guide a filing.\n\nThis plan pays for: the filing walkthrough and portal field map once the forms are notified, hand-derived golden tests for every changed rule, and a paid review of the rate and rule tables by a practising chartered accountant before the July 2027 filing season.",
+        "amount": 500000,
+        "currency": "INR",
+        "frequency": "one-time",
+        "channels": [
+          "bank"
+        ]
+      },
+      {
+        "guid": "utility-json-export",
+        "status": "active",
+        "name": "Offline-utility upload file",
+        "description": "Generate the upload JSON for the government's offline utility against its published schema, so a taxpayer uploads one file and reviews it, without typing twenty schedules by hand. Includes tests against the utility's real import behaviour and a revised-return workflow.",
+        "amount": 300000,
+        "currency": "INR",
+        "frequency": "one-time",
+        "channels": [
+          "bank"
+        ]
+      },
+      {
+        "guid": "yearly-maintenance",
+        "status": "active",
+        "name": "One year of maintenance",
+        "description": "Keeps the tool correct for a year: rate and rule updates after each Finance Act, priority fixes for wrong-figure reports in filing season, deeper RSU, ESPP and foreign-asset schedule support, and a native Windows installer.",
+        "amount": 10000,
+        "currency": "USD",
+        "frequency": "yearly",
+        "channels": [
+          "bank",
+          "github-sponsors"
+        ]
+      },
+      {
+        "guid": "sponsor",
+        "status": "active",
+        "name": "Sponsor on GitHub",
+        "description": "Any amount, one-time or monthly.",
+        "amount": 0,
+        "currency": "USD",
+        "frequency": "monthly",
+        "channels": [
+          "github-sponsors"
+        ]
+      }
+    ]
+  }
+}

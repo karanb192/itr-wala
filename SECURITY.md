@@ -27,4 +27,8 @@ This is a one-maintainer project. I aim to acknowledge a report within a week. O
 
 ## Supported versions
 
-Fixes land on the `main` branch. Update by the route you installed with, keeping the same install scope: see [Update your existing install](docs/rebate-correction.md#update-your-existing-install). If you pinned a commit with `ITR_WALA_REF`, review the fix and move the pin.
+Fixes land on the `main` branch, and the security advisory names the commit or version that carries the fix.
+
+- Update by the route you installed with, keeping the same install scope. The commands for each route are under [Update your existing install](docs/rebate-correction.md#update-your-existing-install).
+- That page checks for one specific engine version. For a security fix, check for the commit or version named in the advisory.
+- If you pinned a commit with `ITR_WALA_REF`, review the fix and move the pin.

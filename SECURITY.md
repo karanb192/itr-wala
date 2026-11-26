@@ -1,6 +1,6 @@
 # Security Policy
 
-itr-wala handles salary, bank and tax data, so security reports get priority over everything else.
+itr-wala handles salary, bank and tax data, so security reports are handled privately and ahead of feature work.
 
 ## Reporting a vulnerability
 
@@ -8,9 +8,9 @@ Report privately. Do not open a public issue.
 
 - Use [private vulnerability reporting](https://github.com/karanb192/itr-wala/security/advisories/new) on this repository.
 
-You will get a reply within a few days. Once fixed, reporters are credited in the release notes unless they prefer otherwise.
+This is a one-maintainer project. I aim to acknowledge a report within a week. Once fixed, reporters are credited in the release notes unless they prefer otherwise.
 
-**Never include real tax data in a report.** No PAN, Aadhaar, account numbers, documents or portal screenshots with identifiers. Reproduce the problem with a minimal `income.json` built from `skills/itr-wala/assets/example-income.json`.
+**Never include real tax data in a report.** No PAN, Aadhaar, account numbers, documents or portal screenshots with identifiers. Reproduce the problem with made-up data, whichever fits the report: a minimal `income.json` built from `skills/itr-wala/assets/example-income.json`, a fictional document, or the install command you ran.
 
 ## In scope
 
@@ -27,4 +27,4 @@ You will get a reply within a few days. Once fixed, reporters are credited in th
 
 ## Supported versions
 
-The `main` branch is supported. Reinstall from `main` to get fixes.
+Fixes land on the `main` branch. Update by the route you installed with, keeping the same install scope: see [Update your existing install](docs/rebate-correction.md#update-your-existing-install). If you pinned a commit with `ITR_WALA_REF`, review the fix and move the pin.

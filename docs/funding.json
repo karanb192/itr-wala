@@ -69,7 +69,7 @@
         "guid": "utility-json-export",
         "status": "active",
         "name": "Offline-utility upload file",
-        "description": "Generate the upload JSON for the government's offline utility against its published schema, so a taxpayer uploads one file and reviews it, without typing twenty schedules by hand. Today the taxpayer types the schedules into the utility.\n\nDone when a fictional return imports into the utility with every schedule populated and totals that match itr-wala's filing pack. A schema-valid file that imports blank is the known failure this test catches.\n\nAlso includes a revised-return workflow.",
+        "description": "Generate the upload JSON for the government's offline utility against its published schema, so a taxpayer uploads one file and reviews it, without typing twenty schedules by hand. Today the taxpayer types the schedules into the utility.\n\nFirst target: the ITR-2 form for Tax Year 2026-27, once its utility and schema are published.\n\nDone when a fictional return for that form passes the utility's own validation with zero errors, every schedule that applies carries the values in itr-wala's filing pack, and schedules that do not apply stay absent. A schema-valid file that imports blank is the known failure this test catches.",
         "amount": 300000,
         "currency": "INR",
         "frequency": "one-time",

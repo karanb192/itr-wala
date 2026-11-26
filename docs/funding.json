@@ -16,7 +16,7 @@
     {
       "guid": "itr-wala",
       "name": "itr-wala",
-      "description": "itr-wala helps a resident Indian taxpayer prepare an income tax return, or plan advance tax, from the terminal with an AI coding agent. It is free and MIT licensed.\n\nThe agent reads the taxpayer's own documents (Form 16, AIS) and fills a structured income file. Every rupee of tax is then computed by a deterministic Python engine that uses only the standard library, so anyone can read and rerun it. The engine covers salary, house property, capital gains, crypto, interest and dividends, presumptive income, both regimes, surcharge with marginal relief, interest and late fees. Cases it does not cover are refused and sent to a chartered accountant, never approximated. The taxpayer pays, submits and e-verifies on the government portal personally.\n\nEvery tax figure ships with a hand-derived test and its statutory source. The suite has 297 tests and a seeded fuzz run on every push.\n\nThe project was first published in July 2026. In November 2026 it has 891 GitHub stars and 130 forks. It supports FY 2025-26 returns and FY 2026-27 advance-tax planning under the Income-tax Act 2025.",
+      "description": "itr-wala helps a resident Indian taxpayer prepare an income tax return, or plan advance tax, from the terminal with an AI coding agent. It is free and MIT licensed.\n\nThe agent reads the taxpayer's own documents (Form 16, AIS) and fills a structured income file. Every rupee of tax is then computed by a deterministic Python engine that uses only the standard library, so anyone can read and rerun it. The engine covers salary, house property, capital gains, crypto, interest and dividends, presumptive income, both regimes, surcharge with marginal relief, interest and late fees. Out-of-scope cases, such as non-residents, F&O trading and foreign tax credit, are refused and sent to a chartered accountant. A few partly covered cases, such as presumptive income mixed with other income, produce a figure that is flagged for the taxpayer to reconcile before filing. The README lists both groups. The taxpayer pays, submits and e-verifies on the government portal personally.\n\nAny change to a computed figure must ship with a test whose expected value is derived by hand from the statute, with the section cited. The engine has 102 tests and the input validator 133, and a seeded fuzz run checks the engine on every push.\n\nThe project was first published in July 2026. In November 2026 it has 891 GitHub stars and 130 forks. It supports FY 2025-26 returns and FY 2026-27 advance-tax planning under the Income-tax Act 2025.",
       "webpageUrl": {
         "url": "https://itr-wala.karanbansal.in"
       },
@@ -43,7 +43,7 @@
         "guid": "github-sponsors",
         "type": "payment-provider",
         "address": "https://github.com/sponsors/karanb192",
-        "description": "GitHub Sponsors, for one-time and monthly sponsorships."
+        "description": "GitHub Sponsors. Takes one-time and monthly sponsorships of any amount."
       },
       {
         "guid": "bank",
@@ -69,7 +69,7 @@
         "guid": "utility-json-export",
         "status": "active",
         "name": "Offline-utility upload file",
-        "description": "Generate the upload JSON for the government's offline utility against its published schema, so a taxpayer uploads one file and reviews it, without typing twenty schedules by hand. Includes tests against the utility's real import behaviour and a revised-return workflow.",
+        "description": "Generate the upload JSON for the government's offline utility against its published schema, so a taxpayer uploads one file and reviews it, without typing twenty schedules by hand. Today the taxpayer types the schedules into the utility.\n\nDone when a fictional return imports into the utility with every schedule populated and totals that match itr-wala's filing pack. A schema-valid file that imports blank is the known failure this test catches.\n\nAlso includes a revised-return workflow.",
         "amount": 300000,
         "currency": "INR",
         "frequency": "one-time",
@@ -94,7 +94,7 @@
         "guid": "sponsor",
         "status": "active",
         "name": "Sponsor on GitHub",
-        "description": "Any amount, one-time or monthly.",
+        "description": "Any amount, every month.",
         "amount": 0,
         "currency": "USD",
         "frequency": "monthly",

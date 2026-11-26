@@ -96,7 +96,7 @@ itr-wala splits the work the way it should be split:
 
 The math is defended in three layers, all shipped in the repo and run in CI on every commit:
 
-1. **102 tax tests** covering hand-derived rupee expectations and output guards: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and mixed presumptive income.
+1. **101 tax tests** covering hand-derived rupee expectations and output guards: rebates on total income including special gains, marginal relief, both-year rate goldens, surcharge and loss set-off, challan dates, expected credits, senior exemption and the mixed presumptive instalment split.
 2. **133 validator tests** reject malformed, mistyped, PAN-bearing or wrong-year inputs, forecasts mixed into returns, and future payments counted as already paid.
 3. **A property-based fuzzer** (`scripts/fuzz_engine.py`) checks determinism, rounding, cess, component totals, comparisons, income monotonicity and payment targets. CI runs 3,000 cases for each year/purpose combination, 12,000 per Python version. The 1.3.0 engine passed a 360,000-case sweep (90,000 per combination, seed 42). The earlier FY 2025-26 release also underwent its 350,000+ case sweep.
 
@@ -204,11 +204,12 @@ For FY 2026-27, annual computation works after year end; notified return forms
 and the official utility must be checked before producing a portal field map.
 Revised returns and their fees remain unsupported.
 
-**Presumptive income plus salary, rent, interest or gains needs an extra check.**
-The engine flags affected results for external verification. Official AY 2026-27
-calculation components charge interest that its March-only interpretation can
-miss. Reconcile interest before filing, and confirm payment timing before relying
-on a March-only plan. [Evidence and limits](docs/mixed-presumptive-interest.md).
+**Presumptive income plus salary, rent, interest or gains uses a split schedule.**
+Eligible 44AD/44ADA filers pay the presumptive share by 15 March; the engine
+applies the quarterly targets only to tax on the rest, matching the inspected
+AY 2026-27 official calculation components. TY 2026-27 utility treatment is still
+unobserved, so reconcile a filed return with the selected utility or a CA.
+[Evidence and limits](docs/mixed-presumptive-interest.md).
 
 **Out of scope:** non-residents/RNOR, F&O/intraday, audit, foreign tax credit
 (Form 67/DTAA), ESOP deferral and the property indexation option. If your return

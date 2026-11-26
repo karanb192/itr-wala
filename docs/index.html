@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>itr-wala · File your Indian ITR from the terminal, every rupee computed by tested code</title>
-<meta name="description" content="FY 2025-26 returns and FY 2026-27 tax and advance-payment planning. Tested Python computes every rupee. 93 tax tests, 131 validator tests, both years in CI. You alone pay, submit and e-verify.">
+<meta name="description" content="FY 2025-26 returns and FY 2026-27 tax and advance-payment planning. Tested Python computes every rupee. 101 tax tests, 133 validator tests, both years in CI. You alone pay, submit and e-verify.">
 <meta name="author" content="Karan Bansal">
 <link rel="canonical" href="https://itr-wala.karanbansal.in/">
 
@@ -233,7 +233,7 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
 </head>
 <body>
 
-<div class="strip"><strong>FY 2025-26 belated returns: 31 Dec 2026.</strong> Late fee ₹1,000 up to ₹5L income, else ₹5,000, plus applicable interest. FY 2026-27 advance tax: 15 Dec / 15 Mar; presumptive filers with other income need a <a href="https://github.com/karanb192/itr-wala/blob/main/docs/mixed-presumptive-interest.md">schedule check</a> before relying on 15 Mar. · As seen in <a href="https://www.instagram.com/reels/DcbBPwszsVR/" target="_blank" rel="noopener">@ezsnippet's reel</a>: 1.2M views. <a href="https://github.com/karanb192/itr-wala/blob/main/skills/itr-wala/references/rates-fy2026-27.md">Rules and sources</a>.</div>
+<div class="strip"><strong>FY 2025-26 belated returns: 31 Dec 2026.</strong> Late fee ₹1,000 up to ₹5L income, else ₹5,000, plus applicable interest. FY 2026-27 advance tax: 15 Dec / 15 Mar; mixed presumptive income puts only the presumptive share in March and keeps quarterly targets for the rest. <a href="https://github.com/karanb192/itr-wala/blob/main/docs/mixed-presumptive-interest.md">Schedule evidence</a>. · As seen in <a href="https://www.instagram.com/reels/DcbBPwszsVR/" target="_blank" rel="noopener">@ezsnippet's reel</a>: 1.2M views. <a href="https://github.com/karanb192/itr-wala/blob/main/skills/itr-wala/references/rates-fy2026-27.md">Rules and sources</a>.</div>
 
 <header>
   <div class="wrap head-in">
@@ -306,7 +306,7 @@ footer { border-top: 1px solid var(--rule); padding: 40px 0 48px; font-size: 14p
       </div>
     </div>
     <div class="receipts">
-      <div class="receipt"><div class="n">102</div><div class="l">tax tests with rupee expectations, output guards and both-year coverage</div></div>
+      <div class="receipt"><div class="n">101</div><div class="l">tax tests with rupee expectations, output guards and both-year coverage</div></div>
       <div class="receipt"><div class="n">133</div><div class="l">validator tests rejecting wrong-year, malformed or PAN-bearing inputs</div></div>
       <div class="receipt"><div class="n">360k</div><div class="l">seeded cases on version 1.3.0; 12k per Python version in CI</div></div>
       <div class="receipt"><div class="n">0</div><div class="l">pip installs: stdlib Python 3.9+, runs entirely on your machine</div></div>

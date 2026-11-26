@@ -1,22 +1,32 @@
-# Mixed presumptive income needs interest verification
+# Mixed presumptive income: how s.234C is split
 
-If a return combines eligible presumptive income with salary, rent, interest or
-gains, treat the engine's instalment interest and final payable/refund as
-provisional. Reconcile them with the selected official utility or a CA before
-filing. For advance-tax planning, confirm the schedule before relying on a
-March-only target.
+When a return combines eligible 44AD/44ADA presumptive income with salary, rent,
+interest or gains, the engine now applies the quarterly instalment schedule only
+to the non-presumptive tax share. The presumptive share is added to the 15 March
+target. This replaces the earlier taxpayer-wide March interpretation and its
+external-verification flag.
 
-The engine keeps its statutory interpretation and arithmetic. Its JSON output
-adds `verification_required` for eligible mixed-income cases with at least
-₹10,000 liability after TDS/TCS in an evaluated regime. Text output shows that
-notice before the figures. The notice names the affected regimes. For estimates,
-the threshold uses expected annual credits.
+The split is pinned to the behaviour of the official AY 2026-27 calculation
+components. It is still a calculation-component result, not a complete return,
+portal submission or CPC processing result.
 
-Both supported financial years remain available, including historical
-recomputation. This change does not adjust saved figures, introduce a new tax
-rate, or certify that a return is ready.
+## What the engine computes
 
-## What was reproduced
+For each regime:
+
+1. Recompute annual tax with `business_presumptive_income` set to zero.
+2. Reduce that non-presumptive tax by TDS/TCS, capped at the total assessed tax.
+3. Apply the 15% / 45% / 75% cumulative targets to that non-presumptive balance
+   on 15 June, 15 September and 15 December.
+4. Require 100% of the total assessed tax, including the presumptive share, by
+   15 March.
+
+A presumptive-only filer still gets one 100% March target. So does a mixed filer
+whose non-presumptive income produces no tax after credits. The engine does not
+model the separate s.234C / s.425 relief for capital gains or dividends received
+during the year.
+
+## Reproduced example
 
 On 20 October 2026, the unmodified ITR-3 and ITR-4 interest-calculation functions
 from the official AY 2026-27 common Mac utility v1.2.5 were executed in an
@@ -30,16 +40,18 @@ validate a complete return, submit one, or test CPC processing.
 Each row uses the new regime, a regular-age resident individual, no deductions
 beyond the salary standard deduction, and ₹3,00,000 advance tax on 10 March 2026.
 
-| Fictional income | Engine 1.3.0 interest | ITR-3 component | ITR-4 component |
+| Fictional income | Engine, split schedule | ITR-3 component | ITR-4 component |
 |---|---:|---:|---:|
-| Salary ₹15L gross + 44AD profit ₹8L | ₹0 | ₹3,945 | ₹3,949 |
-| Salary ₹15L gross + 44ADA profit ₹8L | ₹0 | ₹3,945 | ₹3,949 |
+| Salary ₹15L gross + 44AD profit ₹8L | ₹3,945 | ₹3,945 | ₹3,949 |
+| Salary ₹15L gross + 44ADA profit ₹8L | ₹3,945 | ₹3,945 | ₹3,949 |
 | Only 44AD profit ₹22.25L | ₹0 | ₹0 | ₹0 |
 | Only salary ₹23L gross | ₹10,788 | ₹10,788 | ₹10,793 |
 
 The mixed rows use total taxable income ₹22,25,000, including salary after
 standard deduction of ₹14,25,000. Both components remove presumptive profit
-from the first three quarters and include it in March. Their rounding differs.
+from the first three quarters and include it in March. The engine's ₹3,945
+follows the ITR-3 component's floor-to-₹100 bases; ITR-4 rounds ₹4 higher.
+
 The ₹10,788 alternative in [issue 19](https://github.com/karanb192/itr-wala/issues/19)
 applies quarterly timing to the whole liability. It is not the observed
 mixed-income result.
@@ -50,27 +62,23 @@ normal-tax return output. ITR-4 v1.2 selects `TaxCalc!P51` for resident
 presumptive income above the net-liability threshold. This Excel evidence is
 static inspection, not a workbook execution.
 
-## Why the arithmetic remains unchanged
+## Sources and limits
 
-The taxpayer-wide March interpretation follows
+The taxpayer-wide March reading follows
 [s.211(1)(b)](https://www.incometaxindia.gov.in/w/section-211-64) and
 [s.234C(1)(b)](https://www.incometaxindia.gov.in/w/section-234c-37).
 For FY 2026-27, s.403(2), s.408(2) and s.425 of the
 [amended 2025 Act](https://www.incometaxindia.gov.in/documents/d/guest/income_tax_act_2025_as_amended_by_fa_act_2026-pdf)
-also refer to current or returned total income. The department's
-[tax-payment FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/tax-payments-faq)
-describes the entire liability for eligible presumptive taxpayers.
-
-The official component behavior differs from that reading. Historical
+also refer to current or returned total income. Historical
 [ITR-3 instructions, Annexure 5](https://www.incometax.gov.in/iec/foportal/sites/default/files/2021-05/Instructions_ITR3_AY2021_22.pdf)
-also allocate presumptive profit to March and other normal income earlier.
-That establishes a concrete reconciliation risk, not a settled legal conclusion.
+allocate presumptive profit to March and other normal income earlier. The
+implementation follows the observed utility split while retaining the statutory
+cross-check.
 
-A numerical correction needs a complete validated return for the selected form,
-documented rounding treatment and coverage for credits, rebates, deductions,
-losses and special-rate income. AY 2026-27 results do not establish TY 2026-27
-utility behavior. [Issue 19](https://github.com/karanb192/itr-wala/issues/19)
-remains open.
+The AY 2026-27 component probe does not establish TY 2026-27 utility behaviour,
+CPC processing, or results for every credit, rebate, deduction, loss and
+special-rate mix. Reconcile a filed return with the selected official utility or
+a CA before treating payable/refund and regime savings as final.
 
 ## Sources and reproduction identifiers
 

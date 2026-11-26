@@ -633,7 +633,39 @@ def _months_between(d1, d2):
     return max(months, 1)
 
 
-def compute_interest_and_fee(comp, inp, today=None):
+def _non_presumptive_tax(inp, regime_key):
+    """Annual tax on income other than eligible 44AD/44ADA presumptive income."""
+    if _pos((inp.get("income") or {}).get("business_presumptive_income")) <= 0:
+        return 0.0
+    without_business = dict(inp)
+    income = dict(inp.get("income") or {})
+    income["business_presumptive_income"] = 0
+    without_business["income"] = income
+    return compute_regime(without_business, regime_key)["tax"]["total_tax_liability"]
+
+
+def _instalment_targets(inp, rules, regime_key, assessed_tax, credits):
+    """Cumulative targets for an eligible presumptive filer, or None.
+
+    Official AY 2026-27 utility components put only the non-presumptive tax
+    share into the June/September/December checkpoints and add the
+    presumptive share at 100% in March. With no taxable non-presumptive
+    income, the whole liability is correctly a single March target.
+    """
+    if not single_presumptive_instalment(inp):
+        return None
+    non_presumptive = min(
+        assessed_tax, _pos(_non_presumptive_tax(inp, regime_key) - credits))
+    if non_presumptive <= 0:
+        return [(due, pct, months, safe, assessed_tax, assessed_tax)
+                for due, pct, months, safe in advance_schedule(rules, True)]
+    return [(due, pct, months, safe,
+             assessed_tax if pct >= 1 else pct * non_presumptive,
+             non_presumptive)
+            for due, pct, months, safe in advance_schedule(rules, False)]
+
+
+def compute_interest_and_fee(comp, inp, today=None, regime_key=None):
     """234A/B/C + 234F. Simplified but deterministic; documented assumptions."""
     taxes = inp.get("taxes_paid") or {}
     rules = year_rules(inp)
@@ -743,22 +775,31 @@ def compute_interest_and_fee(comp, inp, today=None):
             out["234B"] = int(interest)
 
         # 234C: cumulative 15/45/75/100% by Jun 15 / Sep 15 / Dec 15 / Mar 15.
-        # Eligible presumptive taxpayers, including mixed income: single March instalment.
-        heads = comp["heads"]
+        # Eligible presumptive income is due in March; mixed income keeps the
+        # quarterly schedule for its non-presumptive tax share.
         presumptive = single_presumptive_instalment(inp)
-        checkpoints = advance_schedule(rules, presumptive)
+        targets = _instalment_targets(
+            inp, rules, regime_key or comp.get("regime"), assessed_tax, tds)
+        if targets is None:
+            targets = [(due, pct, months, safe, pct * assessed_tax, assessed_tax)
+                       for due, pct, months, safe in advance_schedule(rules, False)]
         if presumptive:
-            out["assumptions"].append("Eligible presumptive income: single 100% advance-tax "
-                                      f"installment by 15 Mar ({section(inp, 'deferment_interest')}).")
+            if len(targets) > 1:
+                out["assumptions"].append(
+                    "Mixed presumptive and other income: 15/45/75% targets apply only "
+                    "to the non-presumptive tax share; the presumptive share is due "
+                    f"by 15 Mar ({section(inp, 'deferment_interest')}).")
+            else:
+                out["assumptions"].append("Eligible presumptive income: single 100% advance-tax "
+                                          f"installment by 15 Mar ({section(inp, 'deferment_interest')}).")
         paid_by = lambda d: sum(_pos(a.get("amount")) for a in advance_list
                                 if (_parse_date(a.get("date")) or filing) <= d)
         total_234c = 0.0
-        for cp_date, pct, months, safe_pct in checkpoints:
+        for cp_date, pct, months, safe_pct, required, safe_base in targets:
             if cp_date > filing:
                 continue  # installment not yet due on the computation date
-            required = pct * assessed_tax
             paid = paid_by(cp_date)
-            if safe_pct is not None and paid >= safe_pct * assessed_tax:
+            if safe_pct is not None and paid >= safe_pct * safe_base:
                 continue  # safe harbour: 12%/36% paid by Q1/Q2
             if paid < required:
                 total_234c += _floor100(required - paid) * 0.01 * months
@@ -829,38 +870,10 @@ def compute(inp, today=None):
                                     f"business_regime confirms {business_regime} is in force.")
         if checks:
             comp["input_verification_required"] = checks
-        heads = comp["heads"]
-        mixed_presumptive = single_presumptive_instalment(inp) and any(
-            value > 0 for value in
-            [heads["salary"].get("net", 0), heads["other_sources"]["total"],
-             heads["other_sources"]["winnings"]]
-            + [p["income"] for p in heads["house_property"]["properties"]]
-            + list(heads["capital_gains"].values()))
         if purpose == "advance_tax":
-            comp["advance_tax"] = compute_advance_plan(comp, inp, rules)
+            comp["advance_tax"] = compute_advance_plan(comp, inp, rules, rk)
         else:
-            comp["interest_and_fees"] = compute_interest_and_fee(comp, inp, today)
-        credits = (inp.get("expected_tax_credits", inp.get("taxes_paid") or {})
-                   if purpose == "advance_tax" else inp.get("taxes_paid") or {})
-        if (mixed_presumptive and comp["tax"]["total_tax_liability"]
-                - _pos(credits.get("tds")) - _pos(credits.get("tcs")) >= ADVANCE_TAX_MIN):
-            evidence = ("AY 2026-27 official utility calculation components charge early-quarter "
-                        "interest on other income."
-                        if rules["fy"] == "2025-26" else
-                        "Prior-year official utility calculation components split other income "
-                        "into early quarters. TY 2026-27 utility treatment is unverified.")
-            action = ("Confirm payment timing with a CA before relying on the March-only target."
-                      if purpose == "advance_tax" else
-                      "Reconcile instalment interest with the selected official return utility "
-                      "or a CA before using the final payable/refund or regime savings.")
-            message = ("Mixed presumptive and other income: the engine uses a statutory "
-                       f"March-only interpretation for {section(inp, 'deferment_interest')}. "
-                       f"{evidence} {action}")
-            comp["warnings"].append(message)
-            review = result.setdefault("verification_required", {
-                "reason": "mixed_presumptive_income", "regimes": [], "message": message,
-                "evidence": "https://github.com/karanb192/itr-wala/issues/19"})
-            review["regimes"].append(rk)
+            comp["interest_and_fees"] = compute_interest_and_fee(comp, inp, today, rk)
         if business and not single_presumptive_instalment(inp):
             comp["warnings"].append("Presumptive section not supplied: using quarterly advance-tax "
                                     "instalments. Confirm eligibility and set presumptive_section "
@@ -906,7 +919,7 @@ def compute(inp, today=None):
     return result
 
 
-def compute_advance_plan(comp, inp, rules):
+def compute_advance_plan(comp, inp, rules, regime_key=None):
     as_of = date.fromisoformat(inp["as_of_date"])
     taxes = inp.get("taxes_paid") or {}
     expected = inp.get("expected_tax_credits", taxes)
@@ -929,9 +942,13 @@ def compute_advance_plan(comp, inp, rules):
     paid = sum(a for _, a in payments)
     schedule = []
     if liable:
-        for deadline, pct, _, _ in advance_schedule(
-                rules, single_presumptive_instalment(inp)):
-            target = _r10(net * pct)
+        targets = _instalment_targets(
+            inp, rules, regime_key or comp.get("regime"), net, credits)
+        if targets is None:
+            targets = [(due, pct, months, safe, pct * net, net)
+                       for due, pct, months, safe in advance_schedule(rules, False)]
+        for deadline, pct, _, _, required, _ in targets:
+            target = _r10(required)
             paid_by = sum(a for d, a in payments if d <= deadline)
             schedule.append({"due_date": deadline.isoformat(),
                              "cumulative_percent": int(pct * 100),
@@ -952,6 +969,10 @@ def compute_advance_plan(comp, inp, rules):
                    "Expected TDS/TCS covers the full income year, not only credits seen today.",
                    "Payment targets exclude interest. Historical instalment interest is not "
                    "certified by this plan; capital-gain/dividend timing can affect it."]
+    if single_presumptive_instalment(inp) and len(schedule) > 1:
+        assumptions.append("Mixed presumptive and other income: early instalments apply only "
+                           "to the non-presumptive tax share; the presumptive share is "
+                           "included in the 15 March target.")
     if "expected_tax_credits" not in inp:
         assumptions.append("No expected_tax_credits supplied: using only recorded TDS/TCS. "
                            "This can overstate advance tax if further withholding is expected.")
@@ -991,11 +1012,6 @@ def render_table(result):
     add(result["act"])
     if result["purpose"] == "advance_tax":
         add("ADVANCE-TAX ESTIMATE - not a return or refund calculation")
-    review = result.get("verification_required")
-    if review:
-        add("VERIFICATION REQUIRED (" + ", ".join(review["regimes"]).upper() + ")")
-        add(review["message"])
-        add(review["evidence"])
     add("=" * 64)
     for rk in ("new", "old"):
         if rk not in result:
@@ -1077,8 +1093,6 @@ def render_table(result):
         add("\nChoose ONE payment plan after confirming the regime you can legally use.")
         add("A cheaper comparison does not establish eligibility to switch regimes.")
     warn = set(result.get("new", {}).get("warnings", []) + result.get("old", {}).get("warnings", []))
-    if review:
-        warn.discard(review["message"])
     if warn:
         add("\nNotes:")
         for w in sorted(warn):

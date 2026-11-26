@@ -296,7 +296,7 @@ def fuzz_today(inp):
     return date(int(inp.get("financial_year", "2025-26")[:4]) + 1, 7, 20)
 
 
-def advance_plan_errors(inp, liability, plan):
+def advance_plan_errors(inp, liability, plan, regime="new"):
     from decimal import Decimal, ROUND_HALF_UP
     def rounded(value):
         return int((Decimal(str(value)) / 10).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * 10)
@@ -312,17 +312,20 @@ def advance_plan_errors(inp, liability, plan):
     y = int(inp["financial_year"][:4])
     dates = [(f"{y}-06-15", 15), (f"{y}-09-15", 45),
              (f"{y}-12-15", 75), (f"{y + 1}-03-15", 100)]
-    non_business = (income.get("salary", {}).get("gross", 0)
-                    + sum(income.get("capital_gains", {}).values())
-                    + sum(income.get("other_sources", {}).values())
-                    + sum(p.get("rent_received", 0) for p in income.get("house_property", [])))
-    if income.get("business_presumptive_income", 0) > 0 and (
-            income.get("presumptive_section") in ("44AD", "44ADA") or
-            (inp["financial_year"] == "2025-26" and "presumptive_section" not in income and non_business == 0)):
-        dates = dates[-1:]
+    targets = {pct: rounded(net * pct / 100) for _, pct in dates}
+    if tax_engine.single_presumptive_instalment(inp):
+        without_business = copy.deepcopy(inp)
+        without_business["income"]["business_presumptive_income"] = 0
+        other_tax = tax_engine.compute_regime(without_business, regime)["tax"]["total_tax_liability"]
+        other_assessed = min(net, max(0, other_tax - credit))
+        if other_assessed <= 0:
+            dates = dates[-1:]
+        else:
+            targets = {pct: rounded(net if pct == 100 else other_assessed * pct / 100)
+                       for _, pct in dates}
     rows = []
     for day, pct in dates if required else []:
-        target = rounded(net * pct / 100)
+        target = targets[pct]
         by_deadline = sum(p["amount"] for p in taxes.get("advance_tax", []) if p["date"] <= day)
         rows.append({"due_date": day, "cumulative_percent": pct, "cumulative_required": target,
                      "paid_by_deadline": round(by_deadline), "paid_to_date": round(paid),
@@ -386,7 +389,7 @@ def run_case(inp, bump_field, bump_delta):
             if fees["234F"] not in (0, 1_000, 5_000):
                 fail("4-bounds", pre + f"234F={fees['234F']} not in {{0, 1000, 5000}}")
         else:
-            mismatches = advance_plan_errors(inp, t["total_tax_liability"], c["advance_tax"])
+            mismatches = advance_plan_errors(inp, t["total_tax_liability"], c["advance_tax"], rk)
             if mismatches:
                 fail("9-advance-plan", pre + "input-derived plan mismatch: " + ", ".join(mismatches))
         if t["surcharge_marginal_relief"] > t["surcharge"]:
